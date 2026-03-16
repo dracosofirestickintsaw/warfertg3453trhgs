@@ -35,7 +35,7 @@ local function CreateIcon(iconName, size, colorOrTheme)
     if type(iconName) == "string" and (iconName:match("^rbxassetid://") or iconName:match("^%d+$")) then
         local img = Instance.new("ImageLabel")
         img.BackgroundTransparency = 1
-        img.Size = size or UDim2.fromOffset(25, 25)
+        img.Size = size or UDim2.fromOffset(18, 18)
         if type(iconName) == "string" and iconName:match("^%d+$") then
             img.Image = "rbxassetid://" .. iconName
         else
@@ -76,7 +76,7 @@ local function CreateIcon(iconName, size, colorOrTheme)
     -- Fallback
     local img = Instance.new("ImageLabel")
     img.BackgroundTransparency = 1
-    img.Size = size or UDim2.fromOffset(18, 18)
+    img.Size = size or UDim2.fromOffset(25, 25)
     img.ImageColor3 = (typeof(colorOrTheme) == "Color3" and colorOrTheme) or Color3.fromRGB(230, 230, 235)
     img.Image = "rbxassetid://0"
     return img
