@@ -2352,14 +2352,14 @@ local Library = {
                 Window:SetOpen(not Window.IsOpen)
             end)
 
-            Items["MainFrame"].Instance.Size = UDim2.new(0, 100, 0, 100)
+            Items["MainFrame"].Instance.Size = UDim2.new(0, 50, 0, 50)
             Items["Top"]:FadeDescendants(false, Debounce)
             Items["Pages"]:FadeDescendants(false, Debounce)
             Items["Content"]:FadeDescendants(false, Debounce)
             Items["MainFrame"].Instance.Visible = true
             Items["MainFrame"]:Tween({BackgroundTransparency = 0})
             task.wait(Library.Animation.Time - 0.05)
-            Items["MainFrame"]:Tween({Size = UDim2.new(0, 850, 0, 600)}, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out))
+            Items["MainFrame"]:Tween({Size = UDim2.new(0, 2000, 0, 600)}, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out))
             task.wait(1)
             Items["Top"]:FadeDescendants(true, Debounce)
             Items["Pages"]:FadeDescendants(true, Debounce)
