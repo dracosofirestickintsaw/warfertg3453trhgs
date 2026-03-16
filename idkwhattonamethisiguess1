@@ -2310,7 +2310,7 @@ local Library = {
             -- Toggle Button with Logo (supports both asset ids and lucide icons)
             -- Same size for both PC and Mobile: 70x70, bottom left corner
             local toggleSize = UDim2.new(0, 70, 0, 70)
-            local togglePos = UDim2.new(0, 1, 1, -90)
+            local togglePos = UDim2.new(0, 20, 1, -90)
             local toggleAnchor = Vector2.new(0, 1)
             local toggleIconSize = UDim2.fromOffset(42, 42)
 
@@ -2352,7 +2352,7 @@ local Library = {
                 Window:SetOpen(not Window.IsOpen)
             end)
 
-            Items["MainFrame"].Instance.Size = UDim2.new(0, 50, 0, 50)
+            Items["MainFrame"].Instance.Size = UDim2.new(0, 100, 0, 100)
             Items["Top"]:FadeDescendants(false, Debounce)
             Items["Pages"]:FadeDescendants(false, Debounce)
             Items["Content"]:FadeDescendants(false, Debounce)
