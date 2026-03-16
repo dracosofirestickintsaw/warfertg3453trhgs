@@ -2310,9 +2310,9 @@ local Library = {
             -- Toggle Button with Logo (supports both asset ids and lucide icons)
             -- Same size for both PC and Mobile: 70x70, bottom left corner
             local toggleSize = UDim2.new(0, 70, 0, 70)
-            local togglePos = UDim2.new(0, 20, 1, -90)
+            local togglePos = UDim2.new(0, 1, 1, -90)
             local toggleAnchor = Vector2.new(0, 1)
-            local toggleIconSize = UDim2.fromOffset(80, 80)
+            local toggleIconSize = UDim2.fromOffset(42, 42)
 
             Items["ToggleButton"] = Library:Create("TextButton", {
                 Parent = Library.Holder.Instance,
