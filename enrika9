@@ -2245,7 +2245,7 @@ end
                     CanvasSize = UDim2.new(0, 0, 0, 0),
                     ScrollBarThickness = 0,
                     ScrollBarImageColor3 = Color3.fromRGB(60, 60, 65),
-                    ScrollBarImageTransparency = 0.5
+                    ScrollBarImageTransparency = 1
                 })
                 
                 Library:Create("UIPadding", {
