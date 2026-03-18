@@ -331,19 +331,21 @@ local Library = {
         end
     end
 
-    local Themes = {
-        ["Preset"] = {
-            ["Background"] = Color3.fromRGB(7, 8, 16),
-            ["Inline"] = Color3.fromRGB(5, 6, 50),
-            ["Accent Start"] = Color3.fromRGB(102, 110, 255),
-            ["Accent End"] = Color3.fromRGB(220, 60, 200),
-            ["Text"] = Color3.fromRGB(218, 215, 255),
-            ["Text 2"] = Color3.fromRGB(112, 110, 168),
-            ["Element"] = Color3.fromRGB(14, 15, 30),
-            ["Hovered Element"] = Color3.fromRGB(20, 22, 44),
-            ["Topbar"] = Color3.fromRGB(9, 10, 20)
-        }
+local Themes = {
+    ["Preset"] = {
+        ["Background"] = Color3.fromRGB(7, 8, 16),
+        ["Background Transparency"] = 0.35,
+        ["Inline"] = Color3.fromRGB(5, 6, 12),
+        ["Inline Transparency"] = 0.35, 
+        ["Accent Start"] = Color3.fromRGB(102, 110, 255),
+        ["Accent End"] = Color3.fromRGB(220, 60, 200),
+        ["Text"] = Color3.fromRGB(218, 215, 255),
+        ["Text 2"] = Color3.fromRGB(112, 110, 168),
+        ["Element"] = Color3.fromRGB(14, 15, 30),
+        ["Hovered Element"] = Color3.fromRGB(20, 22, 44),
+        ["Topbar"] = Color3.fromRGB(9, 10, 20)
     }
+}
 
     Library.Theme = Themes.Preset
 
@@ -964,30 +966,37 @@ local Library = {
         Element:Refresh(ReturnList)
     end
 
-    Library.AddToTheme = function(Self, Properties)
-        local Object = Self.Instance
+Library.AddToTheme = function(Self, Properties)
+    local Object = Self.Instance
 
-        local ThemeData = {
-            Item = Object,
-            Properties = Properties,
-        }
+    local ThemeData = {
+        Item = Object,
+        Properties = Properties,
+    }
 
-        for Property, Value in ThemeData.Properties do
-            if type(Value) == "string" then
-                if not Library.Theme[Value] then
-                    Object[Property] = Value 
-                end
-
-                Object[Property] = Library.Theme[Value]
-            else
-                Object[Property] = Value()
+    for Property, Value in ThemeData.Properties do
+        if type(Value) == "string" then
+            if not Library.Theme[Value] then
+                Object[Property] = Value 
             end
-        end
 
-        table.insert(Library.ThemingStuff, ThemeData)
-        Library.ThemeMap[Object] = ThemeData
-        return Self
+            Object[Property] = Library.Theme[Value]
+
+            if Property == "BackgroundColor3" then
+                local TransparencyKey = Value .. " Transparency"
+                if Library.Theme[TransparencyKey] then
+                    Object.BackgroundTransparency = Library.Theme[TransparencyKey]
+                end
+            end
+        else
+            Object[Property] = Value()
+        end
     end
+
+    table.insert(Library.ThemingStuff, ThemeData)
+    Library.ThemeMap[Object] = ThemeData
+    return Self
+end
 
     Library.ChangeItemTheme = function(Self, Properties)
         local Object = Self.Instance
@@ -1000,19 +1009,26 @@ local Library = {
         Library.ThemingStuff[Object] = Library.ThemeMap[Object]
     end
 
-    Library.ChangeTheme = function(Self, Theme, Color)
-        Library.Theme[Theme] = Color
+Library.ChangeTheme = function(Self, Theme, Color)
+    Library.Theme[Theme] = Color
 
-        for _, Item in Library.ThemingStuff do
-            for Property, Value in Item.Properties do
-                if type(Value) == "string" and Value == Theme then
-                    Item.Item[Property] = Color
-                elseif type(Value) == "function" then
-                    Item.Item[Property] = Value()
+    for _, Item in Library.ThemingStuff do
+        for Property, Value in Item.Properties do
+            if type(Value) == "string" and Value == Theme then
+                Item.Item[Property] = Color
+
+                if Property == "BackgroundColor3" then
+                    local TransparencyKey = Theme .. " Transparency"
+                    if Library.Theme[TransparencyKey] then
+                        Item.Item.BackgroundTransparency = Library.Theme[TransparencyKey]
+                    end
                 end
+            elseif type(Value) == "function" then
+                Item.Item[Property] = Value()
             end
         end
     end
+end
 
     Library.OnHover = function(Self, OnHoverEnter, OnHoverLeave)
         local Object = Self.Instance
