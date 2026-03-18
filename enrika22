@@ -511,8 +511,6 @@ local Themes = {
 end
 
     Library.Exit = function(Self)
-        cleanupMain()
-        cleanupContent()
         for _, Connection in Library.Connections do 
             Connection.Connection:Disconnect()
         end
