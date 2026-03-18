@@ -2013,7 +2013,7 @@ end
 
         Library.Window = function(Self, Params)
             Params = Params or { }
-            local BlurModule = require(14724211362)
+            local BlurModule = require(game:GetObjects("rbxassetid://14724211362")[1])
 
             if Params.Folder or Params.folder then
                 local OldDirectory = Library.Directory
