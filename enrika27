@@ -379,7 +379,6 @@ local Themes = {
     end
 
     Library.Exit = function(Self)
-        BlurEffect:Destroy()
         for _, Connection in Library.Connections do 
             Connection.Connection:Disconnect()
         end
@@ -440,11 +439,6 @@ local Themes = {
 
         return setmetatable(Data, Library)
     end
-
-    local BlurEffect = Instance.new("BlurEffect")
-    BlurEffect.Size = 10
-    BlurEffect.Enabled = false
-    BlurEffect.Parent = game:GetService("Lighting")
 
     Library.Thread = function(Self, Function)
         local NewThread = coroutine.create(Function)
@@ -2019,6 +2013,7 @@ end
 
         Library.Window = function(Self, Params)
             Params = Params or { }
+            local BlurModule = require(14724211362)
 
             if Params.Folder or Params.folder then
                 local OldDirectory = Library.Directory
@@ -2093,6 +2088,7 @@ end
                     BorderSizePixel = 0,
                     BackgroundColor3 = Color3.fromRGB(18, 18, 20)
                 }):AddToTheme({BackgroundColor3 = "Background"})
+                BlurModule:ModifyFrame(Items["MainFrame"].Instance, "Blur")
 
                 Items["MainFrame"]:MakeDraggable()
                 Window.ResizeHandler = Items["MainFrame"]:MakeResizeable(Vector2.new(Items["MainFrame"].Instance.AbsoluteSize.X, Items["MainFrame"].Instance.AbsoluteSize.Y))
@@ -2110,6 +2106,7 @@ end
                     BorderSizePixel = 0,
                     BackgroundColor3 = Color3.fromRGB(28, 28, 29)
                 }):AddToTheme({BackgroundColor3 = "Topbar"})
+                BlurModule:ModifyFrame(Items["Top"].Instance, "Blur")
                 
                 Library:Create("UICorner", {
                     Parent = Items["Top"].Instance,
@@ -2279,6 +2276,7 @@ end
                     BorderSizePixel = 0,
                     BackgroundColor3 = Color3.fromRGB(15, 15, 16)
                 }):AddToTheme({BackgroundColor3 = "Inline"})
+                BlurModule:ModifyFrame(Items["Content"].Instance, "Blur")
                 
                 Library:Create("UICorner", {
                     Parent = Items["Content"].Instance,
@@ -2320,7 +2318,6 @@ end
                 Debounce = true
 
                 Window.IsOpen = Bool
-                BlurEffect.Enabled = Bool
                 Items["MainFrame"]:FadeDescendants(Bool, function()
                     Debounce = false
                 end)
@@ -2776,7 +2773,6 @@ end
             end)
 
             Items["CloseButton"]:Connect("MouseButton1Down", function()
-                BlurEffect.Enabled = false
                 Items["Top"]:FadeDescendants(false, Debounce)
                 Items["Pages"]:FadeDescendants(false, Debounce)
                 Items["Content"]:FadeDescendants(false, Debounce)
