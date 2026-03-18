@@ -334,13 +334,13 @@ local Library = {
     local Themes = {
         ["Preset"] = {
             ["Background"] = Color3.fromRGB(7, 8, 16),
-            ["Inline"] = Color3.fromRGB(5, 6, 12),
+            ["Inline"] = Color3.fromRGB(5, 6, 50),
             ["Accent Start"] = Color3.fromRGB(102, 110, 255),
             ["Accent End"] = Color3.fromRGB(220, 60, 200),
             ["Text"] = Color3.fromRGB(218, 215, 255),
             ["Text 2"] = Color3.fromRGB(112, 110, 168),
             ["Element"] = Color3.fromRGB(14, 15, 30),
-            ["Hovered Element"] = Color3.fromRGB(20, 22, 0),
+            ["Hovered Element"] = Color3.fromRGB(20, 22, 44),
             ["Topbar"] = Color3.fromRGB(9, 10, 20)
         }
     }
