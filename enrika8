@@ -2243,9 +2243,9 @@ end
                     ScrollingDirection = Enum.ScrollingDirection.Y,
                     AutomaticCanvasSize = Enum.AutomaticSize.Y,
                     CanvasSize = UDim2.new(0, 0, 0, 0),
-                    ScrollBarThickness = 2,
+                    ScrollBarThickness = 0,
                     ScrollBarImageColor3 = Color3.fromRGB(60, 60, 65),
-                    ScrollBarImageTransparency = 1
+                    ScrollBarImageTransparency = 0.5
                 })
                 
                 Library:Create("UIPadding", {
