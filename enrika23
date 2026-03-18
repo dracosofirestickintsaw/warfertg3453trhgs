@@ -379,6 +379,7 @@ local Themes = {
     end
 
     Library.Exit = function(Self)
+        BlurEffect:Destroy()
         for _, Connection in Library.Connections do 
             Connection.Connection:Disconnect()
         end
@@ -439,6 +440,11 @@ local Themes = {
 
         return setmetatable(Data, Library)
     end
+
+    local BlurEffect = Instance.new("BlurEffect")
+    BlurEffect.Size = 10
+    BlurEffect.Enabled = false
+    BlurEffect.Parent = game:GetService("Lighting")
 
     Library.Thread = function(Self, Function)
         local NewThread = coroutine.create(Function)
@@ -2314,6 +2320,7 @@ end
                 Debounce = true
 
                 Window.IsOpen = Bool
+                BlurEffect.Enabled = Bool
                 Items["MainFrame"]:FadeDescendants(Bool, function()
                     Debounce = false
                 end)
@@ -2769,6 +2776,7 @@ end
             end)
 
             Items["CloseButton"]:Connect("MouseButton1Down", function()
+                BlurEffect.Enabled = false
                 Items["Top"]:FadeDescendants(false, Debounce)
                 Items["Pages"]:FadeDescendants(false, Debounce)
                 Items["Content"]:FadeDescendants(false, Debounce)
