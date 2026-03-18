@@ -3105,7 +3105,7 @@ end
                     Items["Description"]:ChangeItemTheme({TextColor3 = "Accent End"})
                     Items["Description"]:Tween({TextTransparency = 0, TextColor3 = Library.Theme["Accent End"]})
 
-                    Items["Inactive"]:Tween({BackgroundTransparency = 0.5})
+                    Items["Inactive"]:Tween({BackgroundTransparency = 1})
                 else
                     if Page.Search then
                         Items["Columns"]:Tween({Position = UDim2.new(0, 0, 0, 120)}) 
