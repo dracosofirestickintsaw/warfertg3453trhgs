@@ -77,7 +77,7 @@ local function CreateIcon(iconName, size, colorOrTheme)
 local BlurEffect = Instance.new("BlurEffect")
 BlurEffect.Size = 10
 BlurEffect.Parent = game:GetService("Lighting")
-BlurEffect.Enabled = false
+BlurEffect.Enabled = true
 
     -- Fallback
     local img = Instance.new("ImageLabel")
@@ -2790,7 +2790,6 @@ end
                 Items["MainFrame"]:Tween({Size = UDim2.new(0, 50, 0, 50)}, TweenInfo.new(1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out))
                 task.wait(0.95)
                 Items["MainFrame"]:Tween({BackgroundTransparency = 1})
-                BlurEffect.Enabled = false
                 task.wait(1)
                 Library:Exit()
             end)
