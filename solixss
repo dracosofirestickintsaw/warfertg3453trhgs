@@ -1,62 +1,18 @@
 --[[
-    Da7muLibrary
-    Original design by Da7mu — converted to library format
-    
-    Usage:
-        local Library = loadstring(...)()  -- or require(...)
-        
-        local Window = Library:Window({
-            Name    = "MyHub",
-            Game    = "SomeGame",
-            Version = "v1.0.0",
-            Icon    = "rbxassetid://87255886721409",
-            Logo    = "rbxassetid://125238595802124",  -- profile picture
-            Key     = Enum.KeyCode.RightControl,        -- toggle keybind
-        })
+    Da7muLibrary  –  Fixed Edition
+    Original design by Da7mu
 
-        local Page = Window:Page({
-            Name = "Combat",
-            Icon = "rbxassetid://10723407389",
-        })
-
-        local LeftSection = Page:Section({ Name = "Aimbot", Side = 1 })
-        local RightSection = Page:Section({ Name = "Settings", Side = 2 })
-
-        local myToggle = LeftSection:Toggle({
-            Name     = "Enable Aimbot",
-            Flag     = "AimbotEnabled",
-            Default  = false,
-            Callback = function(v) print("Aimbot:", v) end,
-        })
-
-        LeftSection:Slider({
-            Name     = "FOV",
-            Flag     = "AimbotFOV",
-            Min      = 0,
-            Max      = 360,
-            Default  = 90,
-            Decimals = 1,
-            Suffix   = "°",
-            Callback = function(v) print("FOV:", v) end,
-        })
-
-        LeftSection:Dropdown({
-            Name     = "Hitpart",
-            Flag     = "AimbotHitpart",
-            Items    = { "Head", "HumanoidRootPart", "Torso" },
-            Default  = "Head",
-            Callback = function(v) print("Hitpart:", v) end,
-        })
-
-        RightSection:Button({
-            Name     = "Reset Config",
-            Callback = function() print("Reset!") end,
-        })
-
-        RightSection:Label({ Text = "Version 1.0.0" })
-
-        myToggle:Set(true)
-        print(Library.Flags["AimbotEnabled"]) -- true
+    Changes from original:
+      • Dropdown OptionsList now parents to ScreenGui and positions absolutely,
+        so it never gets clipped by ScrollingFrames or ClipsDescendants frames.
+      • Removed ClipsDescendants = true from ContentContainer.
+      • All UserInputService / RunService connections are stored and cleaned up
+        on Window:Destroy() — no more global connection leaks.
+      • Blur system wrapped in pcall so NearPlaneZ NaN-crashes are silently
+        swallowed; the rest of the UI still works if blur fails.
+      • Dropdown Outer frame no longer fights AutomaticSize with a fixed Y.
+      • Section:Separator() returns self for consistency.
+      • Dragging clamped to viewport so the window can't be dragged off-screen.
 ]]
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -77,12 +33,11 @@ local Camera      = workspace.CurrentCamera
 local Library = {}
 Library.__index = Library
 
-Library.Flags       = {}  -- All element values by flag
-Library.Connections = {}  -- Global connections for cleanup
-Library.BlurCleanup = nil
+Library.Flags       = {}
+Library.Connections = {}   -- {tag = connection}  for global cleanup
 
 -- ─────────────────────────────────────────────────────────────────────────────
---  Theme  (matches original Da7mu colour palette exactly)
+--  Theme
 -- ─────────────────────────────────────────────────────────────────────────────
 Library.Theme = {
     Accent          = Color3.fromRGB(36,  120, 255),
@@ -105,7 +60,7 @@ Library.Theme = {
     ToggleCircleOn  = Color3.fromRGB(203, 203, 199),
 }
 
-local T = Library.Theme  -- shorthand
+local T = Library.Theme
 
 -- ─────────────────────────────────────────────────────────────────────────────
 --  Font
@@ -132,7 +87,7 @@ local function Tween(obj, props, duration, style, direction)
 end
 
 local function New(class, props)
-    local inst = Instance.new(class)
+    local inst   = Instance.new(class)
     local parent = props.Parent
     props.Parent = nil
     for k, v in pairs(props) do
@@ -153,8 +108,28 @@ local function Round(n, decimals)
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
---  Blur System  (adapted from Da7mu's BlurController LocalScript)
---  Uses a Glass BlockMesh part positioned over the GUI + DepthOfFieldEffect
+--  Connection manager  –  prevents leaks
+--  Usage:  ConnStore:Add(conn)   ConnStore:DisconnectAll()
+-- ─────────────────────────────────────────────────────────────────────────────
+local function NewConnStore()
+    local store = { _list = {} }
+    function store:Add(c)
+        table.insert(self._list, c)
+        return c
+    end
+    function store:DisconnectAll()
+        for _, c in ipairs(self._list) do
+            if typeof(c) == "RBXScriptConnection" then
+                c:Disconnect()
+            end
+        end
+        self._list = {}
+    end
+    return store
+end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+--  Blur  (fully wrapped in pcall — UI still works if blur is unavailable)
 -- ─────────────────────────────────────────────────────────────────────────────
 local function CreateBlur(frame, intensity)
     intensity = intensity or 0.25
@@ -163,69 +138,91 @@ local function CreateBlur(frame, intensity)
     local PART_TRANSPARENCY = 1 - 1e-7
     local bindName          = "Da7muBlur_" .. tostring(math.random(1, 9999999))
 
-    local dof = New("DepthOfFieldEffect", {
-        FarIntensity  = 0,
-        NearIntensity = intensity,
-        FocusDistance = 0.25,
-        InFocusRadius = 0,
-        Parent        = Lighting,
-    })
+    local ok, err = pcall(function()
+        local dof = New("DepthOfFieldEffect", {
+            FarIntensity  = 0,
+            NearIntensity = intensity,
+            FocusDistance = 0.25,
+            InFocusRadius = 0,
+            Parent        = Lighting,
+        })
 
-    local part = New("Part", {
-        Size         = Vector3.one * PART_SIZE,
-        Anchored     = true,
-        CanCollide   = false,
-        CanTouch     = false,
-        CastShadow   = false,
-        Material     = Enum.Material.Glass,
-        Transparency = PART_TRANSPARENCY,
-        Parent       = Camera,
-    })
-    local mesh = New("BlockMesh", { Parent = part })
+        local part = New("Part", {
+            Size         = Vector3.one * PART_SIZE,
+            Anchored     = true,
+            CanCollide   = false,
+            CanTouch     = false,
+            CastShadow   = false,
+            Material     = Enum.Material.Glass,
+            Transparency = PART_TRANSPARENCY,
+            Parent       = Camera,
+        })
+        local mesh = New("BlockMesh", { Parent = part })
 
-    local function rayPlaneIntersect(pOrig, pNorm, rOrig, rDir)
-        local t = -pNorm:Dot(rOrig - pOrig) / pNorm:Dot(rDir)
-        return rOrig + t * rDir
-    end
-
-    local function update()
-        if not frame or not frame.Visible then
-            part.Transparency = 1; return
+        local function rayPlaneIntersect(pOrig, pNorm, rOrig, rDir)
+            local denom = pNorm:Dot(rDir)
+            if math.abs(denom) < 1e-6 then return rOrig end
+            local t = -pNorm:Dot(rOrig - pOrig) / denom
+            return rOrig + t * rDir
         end
-        part.Transparency = PART_TRANSPARENCY
 
-        local c0   = frame.AbsolutePosition + BLUR_INSET
-        local c1   = frame.AbsolutePosition + frame.AbsoluteSize - BLUR_INSET
-        local ray0 = Camera:ViewportPointToRay(c0.X, c0.Y, 1)
-        local ray1 = Camera:ViewportPointToRay(c1.X, c1.Y, 1)
+        local function update()
+            if not frame or not frame.Visible then
+                part.Transparency = 1
+                return
+            end
+            part.Transparency = PART_TRANSPARENCY
 
-        local pOrig = Camera.CFrame.Position + Camera.CFrame.LookVector * (0.05 - Camera.NearPlaneZ)
-        local pNorm = Camera.CFrame.LookVector
+            local c0   = frame.AbsolutePosition + BLUR_INSET
+            local c1   = frame.AbsolutePosition + frame.AbsoluteSize - BLUR_INSET
+            local ray0 = Camera:ViewportPointToRay(c0.X, c0.Y, 1)
+            local ray1 = Camera:ViewportPointToRay(c1.X, c1.Y, 1)
 
-        local p0 = Camera.CFrame:PointToObjectSpace(
-            rayPlaneIntersect(pOrig, pNorm, ray0.Origin, ray0.Direction))
-        local p1 = Camera.CFrame:PointToObjectSpace(
-            rayPlaneIntersect(pOrig, pNorm, ray1.Origin, ray1.Direction))
+            local nearZ = Camera.NearPlaneZ
+            if nearZ ~= nearZ then return end  -- NaN guard
 
-        mesh.Offset           = (p0 + p1) / 2
-        mesh.Scale            = (p1 - p0) / PART_SIZE
-        dof.FocusDistance     = 0.25 - Camera.NearPlaneZ
-    end
+            local pOrig = Camera.CFrame.Position + Camera.CFrame.LookVector * (0.05 - nearZ)
+            local pNorm = Camera.CFrame.LookVector
 
-    RunService:BindToRenderStep(bindName, Enum.RenderPriority.Camera.Value + 1, function()
-        part.CFrame = Camera.CFrame
-        update()
+            local p0 = Camera.CFrame:PointToObjectSpace(
+                rayPlaneIntersect(pOrig, pNorm, ray0.Origin, ray0.Direction))
+            local p1 = Camera.CFrame:PointToObjectSpace(
+                rayPlaneIntersect(pOrig, pNorm, ray1.Origin, ray1.Direction))
+
+            mesh.Offset       = (p0 + p1) / 2
+            mesh.Scale        = (p1 - p0) / PART_SIZE
+            dof.FocusDistance = 0.25 - nearZ
+        end
+
+        RunService:BindToRenderStep(
+            bindName,
+            Enum.RenderPriority.Camera.Value + 1,
+            function()
+                pcall(function()
+                    part.CFrame = Camera.CFrame
+                    update()
+                end)
+            end
+        )
+
+        -- Return cleanup function
+        return function()
+            RunService:UnbindFromRenderStep(bindName)
+            pcall(function() part:Destroy() end)
+            pcall(function() dof:Destroy()  end)
+        end
     end)
 
-    return function()   -- cleanup
-        RunService:UnbindFromRenderStep(bindName)
-        pcall(function() part:Destroy()   end)
-        pcall(function() dof:Destroy()    end)
+    if ok and type(err) == "function" then
+        return err   -- err is the cleanup fn when pcall succeeds
+    else
+        if not ok then warn("[Da7muLibrary] Blur unavailable: " .. tostring(err)) end
+        return function() end  -- no-op cleanup
     end
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
---  Drop shadow (9-slice image behind main frame, ZIndex 0)
+--  Drop shadow
 -- ─────────────────────────────────────────────────────────────────────────────
 local function AddDropShadow(parent)
     local holder = New("Frame", {
@@ -252,7 +249,7 @@ local function AddDropShadow(parent)
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
---  ScreenGui  (placed in CoreGui or gethui() for executor compat)
+--  ScreenGui
 -- ─────────────────────────────────────────────────────────────────────────────
 local ScreenGui = New("ScreenGui", {
     IgnoreGuiInset  = true,
@@ -261,7 +258,8 @@ local ScreenGui = New("ScreenGui", {
     ZIndexBehavior  = Enum.ZIndexBehavior.Global,
     DisplayOrder    = 999,
     Name            = "Da7muLibrary",
-    Parent          = (typeof(gethui) == "function" and gethui()) or game:GetService("CoreGui"),
+    Parent          = (typeof(gethui) == "function" and gethui())
+                      or game:GetService("CoreGui"),
 })
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -270,16 +268,18 @@ local ScreenGui = New("ScreenGui", {
 function Library:Window(config)
     config = config or {}
 
-    local hubName  = config.Name    or "Hub"
-    local gameName = config.Game    or ""
-    local version  = config.Version or "v1.0.0"
-    local hubIcon  = config.Icon    or "rbxassetid://87255886721409"
-    local pfpImage = config.Logo    or "rbxassetid://125238595802124"
-    local toggleKey = config.Key   or Enum.KeyCode.RightControl
+    local hubName   = config.Name    or "Hub"
+    local gameName  = config.Game    or ""
+    local version   = config.Version or "v1.0.0"
+    local hubIcon   = config.Icon    or "rbxassetid://87255886721409"
+    local pfpImage  = config.Logo    or "rbxassetid://125238595802124"
+    local toggleKey = config.Key     or Enum.KeyCode.RightControl
 
     local Window = {
-        Pages  = {},
-        IsOpen = true,
+        Pages       = {},
+        IsOpen      = true,
+        _connStore  = NewConnStore(),
+        _blurClean  = nil,
     }
 
     -- ── Main frame ────────────────────────────────────────────────────────────
@@ -295,7 +295,7 @@ function Library:Window(config)
     })
     New("UICorner", { CornerRadius = UDim.new(0, 10), Parent = Main })
     AddDropShadow(Main)
-    Library.BlurCleanup = CreateBlur(Main)
+    Window._blurClean = CreateBlur(Main)
 
     -- ── Navigation sidebar ────────────────────────────────────────────────────
     local Nav = New("Frame", {
@@ -308,7 +308,6 @@ function Library:Window(config)
     })
     New("UICorner", { Parent = Nav })
 
-    -- Fill in right-side corners so they don't show through
     New("Frame", {
         BorderSizePixel        = 0,
         BackgroundColor3       = T.Nav,
@@ -319,7 +318,6 @@ function Library:Window(config)
         Parent                 = Nav,
     })
 
-    -- Hub icon
     New("ImageLabel", {
         BorderSizePixel        = 0,
         BackgroundTransparency = 1,
@@ -330,7 +328,6 @@ function Library:Window(config)
         Parent                 = Nav,
     })
 
-    -- Hub name
     New("TextLabel", {
         BorderSizePixel        = 0,
         TextSize               = 21,
@@ -345,7 +342,6 @@ function Library:Window(config)
         Parent                 = Nav,
     })
 
-    -- Game name
     New("TextLabel", {
         BorderSizePixel        = 0,
         TextSize               = 13,
@@ -360,7 +356,6 @@ function Library:Window(config)
         Parent                 = Nav,
     })
 
-    -- Top divider
     New("Frame", {
         BorderSizePixel  = 0,
         BackgroundColor3 = T.Stroke,
@@ -370,7 +365,6 @@ function Library:Window(config)
         Parent           = Nav,
     })
 
-    -- Page button holder
     local ButtonHolder = New("Frame", {
         BorderSizePixel        = 0,
         BackgroundTransparency = 1,
@@ -390,7 +384,6 @@ function Library:Window(config)
         Parent    = ButtonHolder,
     })
 
-    -- Bottom divider
     New("Frame", {
         BorderSizePixel  = 0,
         BackgroundColor3 = T.Stroke,
@@ -401,21 +394,19 @@ function Library:Window(config)
         Parent           = Nav,
     })
 
-    -- Profile picture
     local PFP = New("ImageLabel", {
-        BorderSizePixel        = 0,
-        BackgroundColor3       = Color3.fromRGB(255, 255, 255),
-        Image                  = pfpImage,
-        Size                   = UDim2.new(0, 40, 0, 40),
-        AnchorPoint            = Vector2.new(0, 1),
-        Position               = UDim2.new(0, 12, 1, -16),
-        Name                   = "PFP",
-        Parent                 = Nav,
+        BorderSizePixel  = 0,
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        Image            = pfpImage,
+        Size             = UDim2.new(0, 40, 0, 40),
+        AnchorPoint      = Vector2.new(0, 1),
+        Position         = UDim2.new(0, 12, 1, -16),
+        Name             = "PFP",
+        Parent           = Nav,
     })
     New("UICorner", { CornerRadius = UDim.new(0, 100), Parent = PFP })
-    New("UIStroke", { Thickness = 1.7, Color = Color3.fromRGB(32, 68, 126), Parent = PFP })
+    New("UIStroke",  { Thickness = 1.7, Color = Color3.fromRGB(32, 68, 126), Parent = PFP })
 
-    -- Username
     New("TextLabel", {
         BorderSizePixel        = 0,
         TextSize               = 15,
@@ -431,7 +422,6 @@ function Library:Window(config)
         Parent                 = Nav,
     })
 
-    -- Version label
     New("TextLabel", {
         BorderSizePixel        = 0,
         TextSize               = 12,
@@ -447,7 +437,6 @@ function Library:Window(config)
         Parent                 = Nav,
     })
 
-    -- Vertical separator between nav and content
     New("Frame", {
         BorderSizePixel  = 0,
         BackgroundColor3 = T.Stroke,
@@ -457,64 +446,79 @@ function Library:Window(config)
         Parent           = Main,
     })
 
-    -- ── Content container  ─────────────────────────────────────────────────────
-    -- Sits to the right of the nav; holds a Page frame per Page.
+    -- ── Content container
+    -- FIX: ClipsDescendants removed — dropdown lists must not be clipped.
     local ContentContainer = New("Frame", {
         BorderSizePixel        = 0,
         BackgroundTransparency = 1,
         Position               = UDim2.new(0, 228, 0, 66),
         Size                   = UDim2.new(1, -234, 1, -72),
+        ClipsDescendants       = false,   -- was true; caused dropdown options to vanish
         Name                   = "ContentContainer",
-        ClipsDescendants       = true,
         Parent                 = Main,
     })
 
-    -- ── Draggable via the topbar area ─────────────────────────────────────────
+    -- ── Dragging  (clamped to viewport)
     do
         local dragging, dragStart, startPos = false, nil, nil
+        local cs = Window._connStore
 
-        Main.InputBegan:Connect(function(input)
+        cs:Add(Main.InputBegan:Connect(function(input)
             if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
             local mp = input.Position
             local ap = Main.AbsolutePosition
-            if mp.Y <= ap.Y + 62 then  -- topbar height
+            if mp.Y <= ap.Y + 62 then
                 dragging  = true
                 dragStart = mp
                 startPos  = Main.Position
             end
-        end)
+        end))
 
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local delta = input.Position - dragStart
-                Main.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + delta.X,
-                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                )
-            end
-        end)
+        cs:Add(UserInputService.InputChanged:Connect(function(input)
+            if not dragging then return end
+            if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
 
-        UserInputService.InputEnded:Connect(function(input)
+            local vp    = Camera.ViewportSize
+            local delta = input.Position - dragStart
+            local hw    = Main.AbsoluteSize.X / 2
+            local hh    = Main.AbsoluteSize.Y / 2
+
+            -- Clamp so window stays fully on screen
+            local newX = math.clamp(
+                startPos.X.Offset + delta.X,
+                hw - vp.X / 2,
+                vp.X / 2 - hw
+            )
+            local newY = math.clamp(
+                startPos.Y.Offset + delta.Y,
+                hh - vp.Y / 2,
+                vp.Y / 2 - hh
+            )
+
+            Main.Position = UDim2.new(0.5, newX, 0.5, newY)
+        end))
+
+        cs:Add(UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 dragging = false
             end
-        end)
+        end))
     end
 
-    -- ── Keybind toggle ────────────────────────────────────────────────────────
-    UserInputService.InputBegan:Connect(function(input, gpe)
+    -- ── Keybind toggle
+    Window._connStore:Add(UserInputService.InputBegan:Connect(function(input, gpe)
         if gpe then return end
         if input.KeyCode == toggleKey then
             Window.IsOpen = not Window.IsOpen
             Main.Visible  = Window.IsOpen
         end
-    end)
+    end))
 
     Window.Main             = Main
     Window.ButtonHolder     = ButtonHolder
     Window.ContentContainer = ContentContainer
 
-    -- ── Notification ─────────────────────────────────────────────────────────
+    -- ── Notifications
     local NotifHolder = New("Frame", {
         BorderSizePixel        = 0,
         BackgroundTransparency = 1,
@@ -525,12 +529,12 @@ function Library:Window(config)
         Parent                 = ScreenGui,
     })
     New("UIListLayout", {
-        Padding              = UDim.new(0, 8),
-        FillDirection        = Enum.FillDirection.Vertical,
-        VerticalAlignment    = Enum.VerticalAlignment.Bottom,
-        HorizontalAlignment  = Enum.HorizontalAlignment.Right,
-        SortOrder            = Enum.SortOrder.LayoutOrder,
-        Parent               = NotifHolder,
+        Padding             = UDim.new(0, 8),
+        FillDirection       = Enum.FillDirection.Vertical,
+        VerticalAlignment   = Enum.VerticalAlignment.Bottom,
+        HorizontalAlignment = Enum.HorizontalAlignment.Right,
+        SortOrder           = Enum.SortOrder.LayoutOrder,
+        Parent              = NotifHolder,
     })
 
     function Window:Notify(config)
@@ -558,7 +562,6 @@ function Library:Window(config)
             PaddingRight  = UDim.new(0, 12),
             Parent        = NotifFrame,
         })
-
         New("TextLabel", {
             BorderSizePixel        = 0,
             TextSize               = 14,
@@ -587,13 +590,12 @@ function Library:Window(config)
             Parent                 = NotifFrame,
         })
 
-        -- Progress bar
         local ProgBg = New("Frame", {
             BorderSizePixel  = 0,
             BackgroundColor3 = T.Track,
             Size             = UDim2.new(1, 0, 0, 3),
-            Position         = UDim2.new(0, 0, 1, 6),
             AnchorPoint      = Vector2.new(0, 1),
+            Position         = UDim2.new(0, 0, 1, 6),
             Name             = "ProgBg",
             Parent           = NotifFrame,
         })
@@ -606,24 +608,25 @@ function Library:Window(config)
         New("UICorner", { Parent = ProgBg })
         New("UICorner", { Parent = ProgFill })
 
-        -- Animate progress drain
         TweenService:Create(ProgFill, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
             Size = UDim2.new(0, 0, 1, 0),
         }):Play()
 
-        -- Fade out and destroy
         task.delay(duration, function()
             Tween(NotifFrame, { BackgroundTransparency = 1 })
             task.wait(0.25)
-            NotifFrame:Destroy()
+            if NotifFrame and NotifFrame.Parent then
+                NotifFrame:Destroy()
+            end
         end)
 
         return NotifFrame
     end
 
-    -- ── Destroy ───────────────────────────────────────────────────────────────
+    -- ── Destroy
     function Window:Destroy()
-        if Library.BlurCleanup then Library.BlurCleanup() end
+        self._connStore:DisconnectAll()
+        if self._blurClean then self._blurClean() end
         ScreenGui:Destroy()
     end
 
@@ -639,7 +642,6 @@ function Library:Window(config)
             Active = false,
         }
 
-        -- Full-size frame for this page's content
         local PageFrame = New("Frame", {
             BorderSizePixel        = 0,
             BackgroundTransparency = 1,
@@ -649,7 +651,6 @@ function Library:Window(config)
             Parent                 = ContentContainer,
         })
 
-        -- Two scrolling side columns within each page
         local function MakeSideColumn(xPos, xSize, name)
             local sf = New("ScrollingFrame", {
                 BorderSizePixel            = 0,
@@ -660,6 +661,8 @@ function Library:Window(config)
                 ScrollBarThickness         = 2,
                 CanvasSize                 = UDim2.new(0, 0, 0, 0),
                 AutomaticCanvasSize        = Enum.AutomaticSize.Y,
+                -- FIX: ScrollingFrames clip children internally; dropdowns are
+                --      re-parented to ScreenGui when opened to escape this.
                 Name                       = name,
                 Parent                     = PageFrame,
             })
@@ -682,7 +685,6 @@ function Library:Window(config)
         Page.Side2 = MakeSideColumn(0.5, 0.5, "Side2")
         Page.Frame = PageFrame
 
-        -- Nav button
         local NavBtn = New("TextButton", {
             BorderSizePixel        = 0,
             TextSize               = 15,
@@ -716,35 +718,33 @@ function Library:Window(config)
         Page.NavIcon = NavIcon
 
         local function Activate()
-            -- Deactivate all others
             for _, p in ipairs(Window.Pages) do
                 if p ~= Page and p.Active then
-                    p.Active = false
-                    Tween(p.NavBtn, { BackgroundTransparency = 1, TextColor3 = T.TextSecondary })
-                    Tween(p.NavIcon, { ImageColor3 = T.TextSecondary })
+                    p.Active        = false
                     p.Frame.Visible = false
+                    Tween(p.NavBtn,  { BackgroundTransparency = 1, TextColor3 = T.TextSecondary })
+                    Tween(p.NavIcon, { ImageColor3 = T.TextSecondary })
                 end
             end
-            Page.Active     = true
+            Page.Active       = true
             PageFrame.Visible = true
             Tween(NavBtn,  { BackgroundTransparency = 0.05, TextColor3 = T.TextPrimary })
             Tween(NavIcon, { ImageColor3 = T.Accent })
         end
 
-        NavBtn.MouseButton1Click:Connect(function()
+        Window._connStore:Add(NavBtn.MouseButton1Click:Connect(function()
             if not Page.Active then Activate() end
-        end)
-
-        NavBtn.MouseEnter:Connect(function()
+        end))
+        Window._connStore:Add(NavBtn.MouseEnter:Connect(function()
             if not Page.Active then
                 Tween(NavBtn, { BackgroundTransparency = 0.3, TextColor3 = T.TextPrimary })
             end
-        end)
-        NavBtn.MouseLeave:Connect(function()
+        end))
+        Window._connStore:Add(NavBtn.MouseLeave:Connect(function()
             if not Page.Active then
                 Tween(NavBtn, { BackgroundTransparency = 1, TextColor3 = T.TextSecondary })
             end
-        end)
+        end))
 
         if #Window.Pages == 0 then Activate() end
         table.insert(Window.Pages, Page)
@@ -758,7 +758,6 @@ function Library:Window(config)
 
             local Section = { Page = self }
 
-            -- Title (small caps label above the card)
             New("TextLabel", {
                 BorderSizePixel        = 0,
                 TextSize               = 11,
@@ -772,7 +771,6 @@ function Library:Window(config)
                 Parent                 = column,
             })
 
-            -- Card
             local Card = New("Frame", {
                 BorderSizePixel        = 0,
                 BackgroundColor3       = T.Section,
@@ -837,11 +835,9 @@ function Library:Window(config)
                     TextColor3             = default and T.TextPrimary or T.TextDim,
                     Text                   = name,
                     Size                   = UDim2.new(1, -56, 1, 0),
-                    Position               = UDim2.new(0, 0, 0, 0),
                     Parent                 = Row,
                 })
 
-                -- Pill background
                 local Pill = New("Frame", {
                     BorderSizePixel  = 0,
                     BackgroundColor3 = default and T.AccentDark or T.ToggleOff,
@@ -853,7 +849,6 @@ function Library:Window(config)
                 })
                 New("UICorner", { CornerRadius = UDim.new(0, 20), Parent = Pill })
 
-                -- Sliding circle
                 local Circle = New("Frame", {
                     BorderSizePixel  = 0,
                     BackgroundColor3 = default and T.ToggleCircleOn or T.TextDim,
@@ -866,7 +861,6 @@ function Library:Window(config)
                 })
                 New("UICorner", { CornerRadius = UDim.new(0, 100), Parent = Circle })
 
-                -- Invisible click region
                 local ClickBtn = New("TextButton", {
                     BackgroundTransparency = 1,
                     Size                   = UDim2.new(1, 0, 1, 0),
@@ -884,7 +878,7 @@ function Library:Window(config)
                     value        = v
                     Toggle.Value = v
                     Library.Flags[flag] = v
-                    local pillColor   = v and T.AccentDark or T.ToggleOff
+                    local pillColor   = v and T.AccentDark    or T.ToggleOff
                     local circleColor = v and T.ToggleCircleOn or T.TextDim
                     local circlePos   = v
                         and UDim2.new(1, -21, 0.5, -9)
@@ -895,22 +889,23 @@ function Library:Window(config)
                         Tween(Circle, { BackgroundColor3 = circleColor, Position = circlePos })
                         Tween(Title,  { TextColor3 = textColor })
                     else
-                        Pill.BackgroundColor3  = pillColor
+                        Pill.BackgroundColor3   = pillColor
                         Circle.BackgroundColor3 = circleColor
-                        Circle.Position        = circlePos
-                        Title.TextColor3       = textColor
+                        Circle.Position         = circlePos
+                        Title.TextColor3        = textColor
                     end
                     SafeCall(callback, v)
                 end
 
                 Apply(value, false)
 
-                ClickBtn.MouseButton1Click:Connect(function()
+                -- FIX: store connections so they're cleaned on Destroy
+                Window._connStore:Add(ClickBtn.MouseButton1Click:Connect(function()
                     Apply(not value, true)
-                end)
+                end))
 
-                function Toggle:Set(v)    Apply(v, true)  end
-                function Toggle:Get()     return value     end
+                function Toggle:Set(v) Apply(v, true)  end
+                function Toggle:Get() return value      end
 
                 return Toggle
             end
@@ -943,7 +938,6 @@ function Library:Window(config)
                     Parent        = Container,
                 })
 
-                -- Label row
                 New("TextLabel", {
                     BorderSizePixel        = 0,
                     TextSize               = 15,
@@ -957,7 +951,6 @@ function Library:Window(config)
                     Parent                 = Container,
                 })
 
-                -- Value badge
                 local ValueBg = New("Frame", {
                     BorderSizePixel  = 0,
                     BackgroundColor3 = T.ElementDark,
@@ -980,7 +973,6 @@ function Library:Window(config)
                     Parent                 = ValueBg,
                 })
 
-                -- Track
                 local TrackBack = New("Frame", {
                     BorderSizePixel  = 0,
                     BackgroundColor3 = T.Track,
@@ -1015,65 +1007,71 @@ function Library:Window(config)
 
                 Library.Flags[flag] = value
 
-                local Slider   = { Value = value, Flag = flag }
-                local sliding  = false
+                local Slider  = { Value = value, Flag = flag }
+                local sliding = false
 
                 local function SetValue(v, animated)
-                    v            = Round(math.clamp(v, minV, maxV), decimals)
+                    v = Round(math.clamp(v, minV, maxV), decimals)
                     value        = v
                     Slider.Value = v
                     Library.Flags[flag] = v
-                    local t = (v - minV) / (maxV - minV)
+                    local t = (maxV ~= minV) and ((v - minV) / (maxV - minV)) or 0
                     if animated then
                         Tween(Fill,       { Size     = UDim2.new(t, 0, 1, 0) })
                         Tween(DragCircle, { Position = UDim2.new(t, 0, 0.5, 0) })
                     else
-                        Fill.Size            = UDim2.new(t, 0, 1, 0)
-                        DragCircle.Position  = UDim2.new(t, 0, 0.5, 0)
+                        Fill.Size           = UDim2.new(t, 0, 1, 0)
+                        DragCircle.Position = UDim2.new(t, 0, 0.5, 0)
                     end
                     ValueLabel.Text = tostring(v) .. suffix
                     SafeCall(callback, v)
                 end
 
                 local function ProcessInput(inputPos)
-                    local rel = (inputPos.X - TrackBack.AbsolutePosition.X)
-                               / TrackBack.AbsoluteSize.X
+                    local trackSize = TrackBack.AbsoluteSize.X
+                    if trackSize == 0 then return end
+                    local rel = (inputPos.X - TrackBack.AbsolutePosition.X) / trackSize
                     SetValue(minV + (maxV - minV) * math.clamp(rel, 0, 1), false)
                 end
 
-                TrackBack.InputBegan:Connect(function(input)
+                -- FIX: all connections stored in Window._connStore
+                Window._connStore:Add(TrackBack.InputBegan:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1
                     or input.UserInputType == Enum.UserInputType.Touch then
                         sliding = true
                         ProcessInput(input.Position)
                     end
-                end)
+                end))
 
-                UserInputService.InputChanged:Connect(function(input)
-                    if sliding and (
-                        input.UserInputType == Enum.UserInputType.MouseMovement or
-                        input.UserInputType == Enum.UserInputType.Touch
-                    ) then
+                Window._connStore:Add(UserInputService.InputChanged:Connect(function(input)
+                    if not sliding then return end
+                    if input.UserInputType == Enum.UserInputType.MouseMovement
+                    or input.UserInputType == Enum.UserInputType.Touch then
                         ProcessInput(input.Position)
                     end
-                end)
+                end))
 
-                UserInputService.InputEnded:Connect(function(input)
+                Window._connStore:Add(UserInputService.InputEnded:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1
                     or input.UserInputType == Enum.UserInputType.Touch then
                         sliding = false
                     end
-                end)
+                end))
 
                 SetValue(value, false)
 
-                function Slider:Set(v) SetValue(v, true)  end
-                function Slider:Get() return value        end
+                function Slider:Set(v) SetValue(v, true) end
+                function Slider:Get() return value       end
 
                 return Slider
             end
 
             -- ── Dropdown ──────────────────────────────────────────────────────
+            --
+            -- FIX: OptionsList is parented to ScreenGui when open and positioned
+            --      absolutely.  This escapes ScrollingFrame and ClipsDescendants
+            --      clipping entirely.  It is destroyed on Window:Destroy().
+            --
             function Section:Dropdown(config)
                 config = config or {}
                 local name     = config.Name     or "Dropdown"
@@ -1083,22 +1081,21 @@ function Library:Window(config)
                 local multi    = config.Multi    or false
                 local callback = config.Callback or function() end
 
-                -- value is a string for single, table for multi
                 local value  = multi and {} or default
                 local isOpen = false
 
-                -- Outer container grows when open
+                -- Outer container (header row only; no AutomaticSize fight)
+                -- FIX: removed AutomaticSize so the card layout isn't disturbed
+                --      by the floating options list.
                 local Outer = New("Frame", {
                     BorderSizePixel        = 0,
                     BackgroundTransparency = 1,
                     Size                   = UDim2.new(1, 0, 0, 32),
-                    AutomaticSize          = Enum.AutomaticSize.Y,
                     ClipsDescendants       = false,
                     Name                   = name,
                     Parent                 = Card,
                 })
 
-                -- Header row
                 local Header = New("Frame", {
                     BorderSizePixel        = 0,
                     BackgroundTransparency = 1,
@@ -1127,7 +1124,6 @@ function Library:Window(config)
                     Parent                 = Header,
                 })
 
-                -- Selected value chip
                 local ValueBox = New("Frame", {
                     BorderSizePixel        = 0,
                     BackgroundColor3       = T.ElementDark,
@@ -1154,7 +1150,6 @@ function Library:Window(config)
                     Parent                 = ValueBox,
                 })
 
-                -- Arrow icon
                 local Arrow = New("ImageLabel", {
                     BorderSizePixel        = 0,
                     BackgroundTransparency = 1,
@@ -1167,16 +1162,16 @@ function Library:Window(config)
                     Parent                 = Header,
                 })
 
-                -- Options list (hidden initially)
+                -- OptionsList lives on ScreenGui so it is NEVER clipped.
                 local OptionsList = New("Frame", {
                     BorderSizePixel        = 0,
                     BackgroundColor3       = T.ElementDark,
-                    Size                   = UDim2.new(1, 0, 0, 0),
+                    Size                   = UDim2.new(0, 200, 0, 0),   -- width overridden on open
                     AutomaticSize          = Enum.AutomaticSize.Y,
-                    Position               = UDim2.new(0, 0, 0, 34),
                     Visible                = false,
-                    Name                   = "Options",
-                    Parent                 = Outer,
+                    ZIndex                 = 100,
+                    Name                   = name .. "_Options",
+                    Parent                 = ScreenGui,
                 })
                 New("UICorner", { CornerRadius = UDim.new(0, 6), Parent = OptionsList })
                 New("UIStroke",  { Color = T.Stroke, Thickness = 1, Parent = OptionsList })
@@ -1201,7 +1196,6 @@ function Library:Window(config)
 
                 Library.Flags[flag] = value
 
-                -- Highlight helpers
                 local function HighlightOption(opt, selected)
                     Tween(opt.Btn,   { BackgroundTransparency = selected and 0 or 1,
                                        BackgroundColor3 = T.AccentDark })
@@ -1210,21 +1204,33 @@ function Library:Window(config)
 
                 local function UpdateValueLabel()
                     if multi then
-                        ValueLabel.Text = #Dropdown.Value > 0
+                        ValueLabel.Text = (#Dropdown.Value > 0)
                             and table.concat(Dropdown.Value, ", ")
-                            or ""
+                            or  ""
                     else
                         ValueLabel.Text = tostring(Dropdown.Value or "")
                     end
                 end
 
+                -- Reposition the floating list just below the header
+                local function RepositionList()
+                    local ap = Header.AbsolutePosition
+                    local as = Header.AbsoluteSize
+                    OptionsList.Position = UDim2.new(0, ap.X, 0, ap.Y + as.Y + 2)
+                    OptionsList.Size     = UDim2.new(0, as.X, 0, 0)  -- height is auto
+                end
+
                 local function ToggleOpen()
                     isOpen = not isOpen
-                    OptionsList.Visible = isOpen
+                    if isOpen then
+                        RepositionList()
+                        OptionsList.Visible = true
+                    else
+                        OptionsList.Visible = false
+                    end
                     Tween(Arrow, { Rotation = isOpen and 180 or 0 })
                 end
 
-                -- Click row opens/closes
                 local HeaderBtn = New("TextButton", {
                     BackgroundTransparency = 1,
                     Size                   = UDim2.new(1, 0, 0, 30),
@@ -1233,28 +1239,32 @@ function Library:Window(config)
                     ZIndex                 = 4,
                     Parent                 = Header,
                 })
-                HeaderBtn.MouseButton1Click:Connect(ToggleOpen)
 
-                -- Close when clicking outside
-                UserInputService.InputBegan:Connect(function(input)
+                Window._connStore:Add(HeaderBtn.MouseButton1Click:Connect(ToggleOpen))
+
+                -- Close when clicking outside the list
+                Window._connStore:Add(UserInputService.InputBegan:Connect(function(input)
                     if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-                    if isOpen then
-                        local mp = input.Position
-                        local ap = OptionsList.AbsolutePosition
-                        local as = OptionsList.AbsoluteSize
-                        local inBounds = mp.X >= ap.X and mp.X <= ap.X + as.X
-                                      and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y
-                        if not inBounds then ToggleOpen() end
+                    if not isOpen then return end
+                    local mp = input.Position
+                    local ap = OptionsList.AbsolutePosition
+                    local as = OptionsList.AbsoluteSize
+                    local inside = mp.X >= ap.X and mp.X <= ap.X + as.X
+                               and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y
+                    if not inside then
+                        isOpen = false
+                        OptionsList.Visible = false
+                        Tween(Arrow, { Rotation = 0 })
                     end
-                end)
+                end))
 
-                -- Add an option
                 local function AddOption(item)
                     local optBtn = New("TextButton", {
                         BorderSizePixel        = 0,
                         BackgroundColor3       = T.AccentDark,
                         BackgroundTransparency = 1,
                         Size                   = UDim2.new(1, 0, 0, 26),
+                        ZIndex                 = 101,
                         AutoButtonColor        = false,
                         Text                   = "",
                         Name                   = tostring(item),
@@ -1269,6 +1279,7 @@ function Library:Window(config)
                         FontFace               = RFont,
                         BackgroundTransparency = 1,
                         TextColor3             = T.TextSecondary,
+                        ZIndex                 = 102,
                         Text                   = tostring(item),
                         Size                   = UDim2.new(1, -8, 1, 0),
                         Position               = UDim2.new(0, 8, 0, 0),
@@ -1278,7 +1289,7 @@ function Library:Window(config)
                     local optData = { Value = item, Btn = optBtn, Label = optLabel }
                     table.insert(Dropdown.Options, optData)
 
-                    optBtn.MouseButton1Click:Connect(function()
+                    Window._connStore:Add(optBtn.MouseButton1Click:Connect(function()
                         if multi then
                             local idx = table.find(Dropdown.Value, item)
                             if idx then
@@ -1301,14 +1312,13 @@ function Library:Window(config)
                             SafeCall(callback, item)
                             ToggleOpen()
                         end
-                    end)
+                    end))
 
                     return optData
                 end
 
                 for _, item in ipairs(items) do AddOption(item) end
 
-                -- Apply default selection visually
                 if not multi and default ~= "" then
                     for _, o in ipairs(Dropdown.Options) do
                         HighlightOption(o, o.Value == default)
@@ -1319,13 +1329,13 @@ function Library:Window(config)
                 function Dropdown:Set(v)
                     if multi then
                         if type(v) ~= "table" then v = { v } end
-                        Dropdown.Value = v
+                        Dropdown.Value      = v
                         Library.Flags[flag] = v
                         for _, o in ipairs(Dropdown.Options) do
                             HighlightOption(o, table.find(v, o.Value) ~= nil)
                         end
                     else
-                        Dropdown.Value = v
+                        Dropdown.Value      = v
                         Library.Flags[flag] = v
                         for _, o in ipairs(Dropdown.Options) do
                             HighlightOption(o, o.Value == v)
@@ -1336,7 +1346,9 @@ function Library:Window(config)
                 end
 
                 function Dropdown:Refresh(newItems)
-                    for _, o in ipairs(Dropdown.Options) do o.Btn:Destroy() end
+                    for _, o in ipairs(Dropdown.Options) do
+                        o.Btn:Destroy()
+                    end
                     Dropdown.Options = {}
                     for _, item in ipairs(newItems) do AddOption(item) end
                 end
@@ -1376,19 +1388,19 @@ function Library:Window(config)
                     Parent                 = Btn,
                 })
 
-                Btn.MouseEnter:Connect(function()
+                Window._connStore:Add(Btn.MouseEnter:Connect(function()
                     Tween(Btn, { BackgroundTransparency = 0.55 })
-                end)
-                Btn.MouseLeave:Connect(function()
+                end))
+                Window._connStore:Add(Btn.MouseLeave:Connect(function()
                     Tween(Btn, { BackgroundTransparency = 0.82 })
-                end)
-                Btn.MouseButton1Click:Connect(function()
+                end))
+                Window._connStore:Add(Btn.MouseButton1Click:Connect(function()
                     Tween(Btn, { BackgroundTransparency = 0.25 })
                     task.delay(0.15, function()
                         Tween(Btn, { BackgroundTransparency = 0.82 })
                     end)
                     SafeCall(callback)
-                end)
+                end))
 
                 return { Name = name, Instance = Btn }
             end
@@ -1426,6 +1438,7 @@ function Library:Window(config)
                     Name                   = "Separator",
                     Parent                 = Card,
                 })
+                return self   -- FIX: returns self so it can be chained
             end
 
             return Section
