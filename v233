@@ -1,20 +1,18 @@
 --[[
-    Da7muLibrary  –  v4 Polished Edition
+    Da7muLibrary  –  Polished Edition
     Original design by Da7mu
 
-    v4 Changes:
-      • Updated color scheme (darker nav/sections, new stroke color)
-      • Slight background transparency on all element rows (not slider)
-      • Nav active tab uses BackgroundTransparency = 0.3
-      • Blur fixed (IgnoreGuiInset-aware ray casting) + intensity increased to 0.5
-      • 3-Dots sub-panel system: any element accepts SubElements = function(panel) ... end
-      • Sub-panel elements are scaled smaller (26px rows, 13px font)
-      • Automatic separator lines inserted between every element in a section
-      • Drag spring is faster (STIFFNESS 280, DAMPING 30)
-      • Page-switch animation: sections slide up from 18px below
-      • Updated dropdown panel: SearchbarEnabled option, checkmark on selection,
-        scrollable options holder, new value-box sizing
-      • Slider visuals unchanged
+    v3 Changes:
+      • Lucide icon support via Footagesus/Icons — pass "lucide:house" anywhere
+        an icon is accepted (Page, Window hub icon, etc.)
+      • Spring-physics drag delay — window smoothly follows the cursor with
+        velocity, giving a premium inertial feel.
+      • Notifications fade + scale in on appear, fade + scale out on dismiss.
+      • Dropdowns fade + scale in when opened, fade + scale out when closed.
+      • Nav tab icons are pinned flush-left inside the button, independent of
+        the text label, so they can't overlap.
+      • All prior bug-fixes retained (dropdown clipping, connection leaks, blur
+        NaN guard, viewport clamping, separator return value).
 ]]
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -31,6 +29,7 @@ local Camera      = workspace.CurrentCamera
 
 -- ─────────────────────────────────────────────────────────────────────────────
 --  Lucide / Icon resolution
+--  Usage in configs:  Icon = "lucide:house"   or still   Icon = "rbxassetid://..."
 -- ─────────────────────────────────────────────────────────────────────────────
 local IconsURL = "https://raw.githubusercontent.com/Footagesus/Icons/main/Main-v2.lua"
 local Icons    = {}
@@ -45,19 +44,33 @@ do
     end
 end
 
+--[[
+    Accepts:
+      "lucide:house"          → resolved through Icons module
+      "rbxassetid://1234"     → returned as-is
+      ""                      → returned as-is (blank image)
+--]]
 local function ResolveIcon(icon)
     if type(icon) ~= "string" or icon == "" then return icon or "" end
     if icon:sub(1, 7) ~= "lucide:" then return icon end
+
     local name = icon:sub(8)
+
+    -- Format 1: Icons:GetIcon(name) or Icons.GetIcon(name) → string
     if type(Icons.GetIcon) == "function" then
         local ok2, img = pcall(Icons.GetIcon, Icons, name)
         if ok2 and type(img) == "string" then return img end
         local ok3, img2 = pcall(Icons.GetIcon, name)
         if ok3 and type(img2) == "string" then return img2 end
     end
+
+    -- Format 2: Icons[name] → string  or  {Image=..., ...}
     local entry = Icons[name]
     if type(entry) == "string" then return entry end
-    if type(entry) == "table"  then return entry.Image or entry.id or entry[1] or "" end
+    if type(entry) == "table"  then
+        return entry.Image or entry.id or entry[1] or ""
+    end
+
     warn("[Da7muLibrary] Icon not found:", name)
     return ""
 end
@@ -67,21 +80,22 @@ end
 -- ─────────────────────────────────────────────────────────────────────────────
 local Library = {}
 Library.__index = Library
+
 Library.Flags = {}
 
 -- ─────────────────────────────────────────────────────────────────────────────
---  Theme  (v4 updated palette)
+--  Theme
 -- ─────────────────────────────────────────────────────────────────────────────
 Library.Theme = {
     Accent          = Color3.fromRGB(36,  120, 255),
     AccentDark      = Color3.fromRGB(60,  95,  201),
-    Background      = Color3.fromRGB(9,   9,   9  ),
-    Nav             = Color3.fromRGB(16,  17,  22 ),
-    Section         = Color3.fromRGB(37,  38,  46 ),
+    Background      = Color3.fromRGB(0,   0,   0  ),
+    Nav             = Color3.fromRGB(8,   11,  12 ),
+    Section         = Color3.fromRGB(17,  18,  25 ),
     Element         = Color3.fromRGB(22,  21,  28 ),
     ElementDark     = Color3.fromRGB(26,  25,  32 ),
-    NavActive       = Color3.fromRGB(54,  62,  70 ),
-    Stroke          = Color3.fromRGB(54,  54,  62 ),
+    NavActive       = Color3.fromRGB(28,  34,  42 ),
+    Stroke          = Color3.fromRGB(29,  29,  33 ),
     Track           = Color3.fromRGB(36,  36,  41 ),
     ToggleOff       = Color3.fromRGB(12,  12,  19 ),
     SliderCircle    = Color3.fromRGB(133, 133, 138),
@@ -101,11 +115,6 @@ local T = Library.Theme
 local RFont = Font.new(
     "rbxasset://fonts/families/Roboto.json",
     Enum.FontWeight.Regular,
-    Enum.FontStyle.Normal
-)
-local RFontBold = Font.new(
-    "rbxasset://fonts/families/Roboto.json",
-    Enum.FontWeight.Bold,
     Enum.FontStyle.Normal
 )
 
@@ -143,6 +152,7 @@ local function Round(n, decimals)
     return math.floor(n * mult + 0.5) / mult
 end
 
+-- ── Connection store (prevents leaks) ────────────────────────────────────────
 local function NewConnStore()
     local store = { _list = {} }
     function store:Add(c)
@@ -159,11 +169,11 @@ local function NewConnStore()
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
---  Blur  (v4 – IgnoreGuiInset-aware, intensity 0.5)
+--  Blur  (pcall-wrapped so a crash here never kills the UI)
 -- ─────────────────────────────────────────────────────────────────────────────
 local function CreateBlur(frame, intensity)
-    intensity = intensity or 0.5   -- increased from v3's 0.25
-    local BLUR_SIZE         = Vector2.new(10, 10)
+    intensity = intensity or 0.25
+    local BLUR_INSET        = Vector2.new(10, 10)
     local PART_SIZE         = 0.01
     local PART_TRANSPARENCY = 1 - 1e-7
     local bindName          = "Da7muBlur_" .. tostring(math.random(1, 9999999))
@@ -173,27 +183,13 @@ local function CreateBlur(frame, intensity)
             FarIntensity = 0, NearIntensity = intensity,
             FocusDistance = 0.25, InFocusRadius = 0, Parent = Lighting,
         })
-
-        local blurPart = New("Part", {
+        local part = New("Part", {
             Size = Vector3.one * PART_SIZE, Anchored = true,
             CanCollide = false, CanTouch = false, CastShadow = false,
             Material = Enum.Material.Glass, Transparency = PART_TRANSPARENCY,
             Parent = Camera,
         })
-        local mesh = New("BlockMesh", { Parent = blurPart })
-
-        -- Detect IgnoreGuiInset at construction time (stable for our ScreenGui)
-        local ignoreInset = false
-        local cur = frame
-        while true do
-            cur = cur.Parent
-            if cur and cur:IsA("ScreenGui") then
-                ignoreInset = cur.IgnoreGuiInset
-                break
-            elseif cur == nil then
-                break
-            end
-        end
+        local mesh = New("BlockMesh", { Parent = part })
 
         local function rpi(pO, pN, rO, rD)
             local d = pN:Dot(rD)
@@ -201,50 +197,31 @@ local function CreateBlur(frame, intensity)
             return rO + (-pN:Dot(rO - pO) / d) * rD
         end
 
-        local function updateBlur()
-            if not frame or not frame.Visible then
-                blurPart.Transparency = 1
-                return
-            end
-            blurPart.Transparency = PART_TRANSPARENCY
-
-            local corner0 = frame.AbsolutePosition + BLUR_SIZE
-            local corner1 = corner0 + frame.AbsoluteSize - BLUR_SIZE * 2
-
-            local ray0, ray1
-            if ignoreInset then
-                ray0 = Camera:ViewportPointToRay(corner0.X, corner0.Y, 1)
-                ray1 = Camera:ViewportPointToRay(corner1.X, corner1.Y, 1)
-            else
-                ray0 = Camera:ScreenPointToRay(corner0.X, corner0.Y, 1)
-                ray1 = Camera:ScreenPointToRay(corner1.X, corner1.Y, 1)
-            end
-
+        local function update()
+            if not frame or not frame.Visible then part.Transparency = 1; return end
+            part.Transparency = PART_TRANSPARENCY
+            local c0 = frame.AbsolutePosition + BLUR_INSET
+            local c1 = frame.AbsolutePosition + frame.AbsoluteSize - BLUR_INSET
+            local r0 = Camera:ViewportPointToRay(c0.X, c0.Y, 1)
+            local r1 = Camera:ViewportPointToRay(c1.X, c1.Y, 1)
             local nz = Camera.NearPlaneZ
-            if nz ~= nz then return end  -- NaN guard
-
-            local planeOrigin = Camera.CFrame.Position + Camera.CFrame.LookVector * (0.05 - nz)
-            local planeNormal = Camera.CFrame.LookVector
-
-            local pos0 = Camera.CFrame:PointToObjectSpace(rpi(planeOrigin, planeNormal, ray0.Origin, ray0.Direction))
-            local pos1 = Camera.CFrame:PointToObjectSpace(rpi(planeOrigin, planeNormal, ray1.Origin, ray1.Direction))
-
-            mesh.Offset = (pos0 + pos1) / 2
-            mesh.Scale  = (pos1 - pos0) / PART_SIZE
+            if nz ~= nz then return end
+            local pO = Camera.CFrame.Position + Camera.CFrame.LookVector * (0.05 - nz)
+            local pN = Camera.CFrame.LookVector
+            local p0 = Camera.CFrame:PointToObjectSpace(rpi(pO, pN, r0.Origin, r0.Direction))
+            local p1 = Camera.CFrame:PointToObjectSpace(rpi(pO, pN, r1.Origin, r1.Direction))
+            mesh.Offset = (p0+p1)/2; mesh.Scale = (p1-p0)/PART_SIZE
             dof.FocusDistance = 0.25 - nz
         end
 
-        RunService:BindToRenderStep(bindName, Enum.RenderPriority.Camera.Value + 1, function()
-            pcall(function()
-                blurPart.CFrame = Camera.CFrame
-                updateBlur()
-            end)
+        RunService:BindToRenderStep(bindName, Enum.RenderPriority.Camera.Value+1, function()
+            pcall(function() part.CFrame = Camera.CFrame; update() end)
         end)
 
         return function()
             RunService:UnbindFromRenderStep(bindName)
-            pcall(function() blurPart:Destroy() end)
-            pcall(function() dof:Destroy() end)
+            pcall(function() part:Destroy() end)
+            pcall(function() dof:Destroy()  end)
         end
     end)
 
@@ -330,7 +307,7 @@ function Library:Window(config)
         Parent                 = Main,
     })
     New("UICorner", { Parent = Nav })
-    New("Frame", {
+    New("Frame", {     -- square off right-side corners
         BorderSizePixel = 0, BackgroundColor3 = T.Nav,
         BackgroundTransparency = 0.6, AnchorPoint = Vector2.new(1,0),
         Position = UDim2.new(1,0,0,0), Size = UDim2.new(0,14,1,0), Parent = Nav,
@@ -357,6 +334,7 @@ function Library:Window(config)
         Size = UDim2.new(1,-20,0,1), Position = UDim2.new(0,10,0,60), Parent = Nav,
     })
 
+    -- Page-button list
     local ButtonHolder = New("Frame", {
         BorderSizePixel = 0, BackgroundTransparency = 1,
         Size = UDim2.new(1,-14,1,-148), Position = UDim2.new(0,7,0,67),
@@ -403,23 +381,30 @@ function Library:Window(config)
         Size = UDim2.new(0,1,1,-66), Position = UDim2.new(0,220,0,60), Parent = Main,
     })
 
+    -- Content container
     local ContentContainer = New("Frame", {
         BorderSizePixel = 0, BackgroundTransparency = 1,
         Position = UDim2.new(0,228,0,66), Size = UDim2.new(1,-234,1,-72),
-        ClipsDescendants = false,
+        ClipsDescendants = false,   -- must stay false so dropdowns aren't clipped
         Name = "ContentContainer", Parent = Main,
     })
 
-    -- ── Spring-physics drag  (v4: STIFFNESS 280, DAMPING 30 = faster settle) ──
+    -- ── Spring-physics drag ───────────────────────────────────────────────────
+    --  The window's position is driven by a damped spring — the spring target
+    --  jumps to wherever the mouse says, but the rendered position follows
+    --  with inertia.  STIFFNESS controls snappiness; DAMPING controls overshoot.
+    --  Current values are critically damped (no bounce) with a ~80ms settle time.
     do
-        local STIFFNESS = 280
-        local DAMPING   = 30
+        local STIFFNESS = 160
+        local DAMPING   = 22
 
+        -- All values are pixel offsets from (0.5, 0, 0.5, 0)
         local springX, springY = 0, 0
         local velX,    velY    = 0, 0
         local targetX, targetY = 0, 0
-        local dragging         = false
-        local startMouse       = Vector3.zero
+
+        local dragging   = false
+        local startMouse = Vector3.zero
         local startTX, startTY = 0, 0
 
         local cs = Window._connStore
@@ -457,7 +442,7 @@ function Library:Window(config)
 
         cs:Add(UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = false
+                dragging = false   -- spring continues settling to targetX/Y naturally
             end
         end))
     end
@@ -475,7 +460,7 @@ function Library:Window(config)
     Window.ButtonHolder     = ButtonHolder
     Window.ContentContainer = ContentContainer
 
-    -- ── Notifications  (fade + scale) ────────────────────────────────────────
+    -- ── Notifications  (fade + scale in / fade + scale out) ──────────────────
     local NotifHolder = New("Frame", {
         BorderSizePixel = 0, BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(1,1), Position = UDim2.new(1,-16,1,-16),
@@ -494,11 +479,16 @@ function Library:Window(config)
         local desc     = config.Description or ""
         local duration = config.Duration    or 5
 
+        -- Container (starts fully invisible)
         local NotifFrame = New("Frame", {
-            BorderSizePixel = 0, BackgroundColor3 = T.Nav,
+            BorderSizePixel        = 0,
+            BackgroundColor3       = T.Nav,
             BackgroundTransparency = 1,
-            Size = UDim2.new(1,0,0,0), AutomaticSize = Enum.AutomaticSize.Y,
-            ClipsDescendants = true, Name = "Notification", Parent = NotifHolder,
+            Size                   = UDim2.new(1, 0, 0, 0),
+            AutomaticSize          = Enum.AutomaticSize.Y,
+            ClipsDescendants       = true,
+            Name                   = "Notification",
+            Parent                 = NotifHolder,
         })
         New("UICorner", { CornerRadius = UDim.new(0,8), Parent = NotifFrame })
         local notifStroke = New("UIStroke", {
@@ -509,12 +499,16 @@ function Library:Window(config)
             PaddingLeft = UDim.new(0,12), PaddingRight = UDim.new(0,12),
             Parent = NotifFrame,
         })
+
+        -- UIScale drives the pop-in / pop-out
         local notifScale = New("UIScale", { Scale = 0.92, Parent = NotifFrame })
+
         local TitleLbl = New("TextLabel", {
             BorderSizePixel = 0, TextSize = 14, FontFace = RFont,
             BackgroundTransparency = 1, TextColor3 = T.TextPrimary,
-            TextTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left,
-            Text = title, Size = UDim2.new(1,0,0,18), Parent = NotifFrame,
+            TextTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left, Text = title,
+            Size = UDim2.new(1,0,0,18), Parent = NotifFrame,
         })
         local DescLbl = New("TextLabel", {
             BorderSizePixel = 0, TextSize = 12, FontFace = RFont,
@@ -524,6 +518,7 @@ function Library:Window(config)
             Size = UDim2.new(1,0,0,0), AutomaticSize = Enum.AutomaticSize.Y,
             Position = UDim2.new(0,0,0,22), Parent = NotifFrame,
         })
+
         local ProgBg = New("Frame", {
             BorderSizePixel = 0, BackgroundColor3 = T.Track,
             Size = UDim2.new(1,0,0,3), AnchorPoint = Vector2.new(0,1),
@@ -536,26 +531,32 @@ function Library:Window(config)
         New("UICorner", { Parent = ProgBg })
         New("UICorner", { Parent = ProgFill })
 
+        -- ── Fade in ──────────────────────────────────────────────────────────
         local IN_T = 0.22
-        Tween(NotifFrame,  { BackgroundTransparency = 0.1 }, IN_T)
-        Tween(notifStroke, { Transparency = 0             }, IN_T)
-        Tween(notifScale,  { Scale = 1.0                  }, IN_T, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        Tween(TitleLbl,    { TextTransparency = 0         }, IN_T)
-        Tween(DescLbl,     { TextTransparency = 0         }, IN_T)
+        Tween(NotifFrame,  { BackgroundTransparency = 0.1  }, IN_T)
+        Tween(notifStroke, { Transparency = 0              }, IN_T)
+        Tween(notifScale,  { Scale = 1.0                   }, IN_T,
+              Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        Tween(TitleLbl,    { TextTransparency = 0          }, IN_T)
+        Tween(DescLbl,     { TextTransparency = 0          }, IN_T)
 
+        -- Progress drain
         TweenService:Create(ProgFill, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
-            Size = UDim2.new(0,0,1,0),
+            Size = UDim2.new(0, 0, 1, 0),
         }):Play()
 
+        -- ── Fade out ─────────────────────────────────────────────────────────
         task.delay(duration, function()
             local OUT_T = 0.2
             Tween(NotifFrame,  { BackgroundTransparency = 1 }, OUT_T)
             Tween(notifStroke, { Transparency = 1           }, OUT_T)
-            Tween(notifScale,  { Scale = 0.92               }, OUT_T)
+            Tween(notifScale,  { Scale = 0.92              }, OUT_T)
             Tween(TitleLbl,    { TextTransparency = 1       }, OUT_T)
             Tween(DescLbl,     { TextTransparency = 1       }, OUT_T)
             task.wait(OUT_T + 0.05)
-            if NotifFrame and NotifFrame.Parent then NotifFrame:Destroy() end
+            if NotifFrame and NotifFrame.Parent then
+                NotifFrame:Destroy()
+            end
         end)
 
         return NotifFrame
@@ -578,8 +579,8 @@ function Library:Window(config)
 
         local PageFrame = New("Frame", {
             BorderSizePixel = 0, BackgroundTransparency = 1,
-            Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0),
-            Visible = false, Name = pageName, Parent = ContentContainer,
+            Size = UDim2.new(1,0,1,0), Visible = false,
+            Name = pageName, Parent = ContentContainer,
         })
 
         local function MakeSideColumn(xPos, xSize, name)
@@ -606,7 +607,10 @@ function Library:Window(config)
         Page.Side2 = MakeSideColumn(0.5, 0.5, "Side2")
         Page.Frame = PageFrame
 
-        -- ── Nav button ────────────────────────────────────────────────────────
+        -- ── Nav button
+        --  Layout: [8px gap][Icon 18px][10px gap][Text fills rest]
+        --  The icon and text are siblings inside a plain Frame — this prevents
+        --  TextButton.Text from ever overlapping the icon.
         local NavBtnFrame = New("Frame", {
             BorderSizePixel = 0, BackgroundColor3 = T.NavActive,
             BackgroundTransparency = 1,
@@ -614,20 +618,29 @@ function Library:Window(config)
         })
         New("UICorner", { Parent = NavBtnFrame })
 
+        -- Icon — locked to the left edge, vertically centred
         local NavIcon = New("ImageLabel", {
             BorderSizePixel = 0, BackgroundTransparency = 1,
-            ImageColor3 = T.TextSecondary, AnchorPoint = Vector2.new(0,0.5),
-            Image = pageIcon, Size = UDim2.new(0,18,0,18),
-            Position = UDim2.new(0,10,0.5,0), Name = "Icon", Parent = NavBtnFrame,
+            ImageColor3 = T.TextSecondary,
+            AnchorPoint = Vector2.new(0, 0.5),
+            Image = pageIcon,
+            Size = UDim2.new(0, 18, 0, 18),
+            Position = UDim2.new(0, 10, 0.5, 0),   -- 10 px from left
+            Name = "Icon", Parent = NavBtnFrame,
         })
+
+        -- Text — starts at x=36 (10 left-pad + 18 icon + 8 gap)
         local NavLabel = New("TextLabel", {
             BorderSizePixel = 0, TextSize = 15, FontFace = RFont,
             TextXAlignment = Enum.TextXAlignment.Left,
             BackgroundTransparency = 1, TextColor3 = T.TextSecondary,
             Text = pageName,
-            Position = UDim2.new(0,36,0,0), Size = UDim2.new(1,-36,1,0),
+            Position = UDim2.new(0, 36, 0, 0),
+            Size     = UDim2.new(1, -36, 1, 0),
             Name = "Label", Parent = NavBtnFrame,
         })
+
+        -- Invisible click overlay
         local NavBtn = New("TextButton", {
             BackgroundTransparency = 1, Size = UDim2.new(1,0,1,0),
             Text = "", AutoButtonColor = false, ZIndex = 5, Parent = NavBtnFrame,
@@ -642,20 +655,15 @@ function Library:Window(config)
             for _, p in ipairs(Window.Pages) do
                 if p ~= Page and p.Active then
                     p.Active = false; p.Frame.Visible = false
-                    Tween(p.NavBtnFrame, { BackgroundTransparency = 1    })
+                    Tween(p.NavBtnFrame, { BackgroundTransparency = 1   })
                     Tween(p.NavLabel,    { TextColor3 = T.TextSecondary  })
                     Tween(p.NavIcon,     { ImageColor3 = T.TextSecondary })
                 end
             end
-            Page.Active = true
-            PageFrame.Visible = true
-            -- v4: slide-up page transition
-            PageFrame.Position = UDim2.new(0, 0, 0, 18)
-            Tween(PageFrame, { Position = UDim2.new(0,0,0,0) }, 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            -- v4: active tab has transparent background (0.3)
-            Tween(NavBtnFrame, { BackgroundTransparency = 0.3  })
-            Tween(NavLabel,    { TextColor3  = T.TextPrimary   })
-            Tween(NavIcon,     { ImageColor3 = T.Accent        })
+            Page.Active = true; PageFrame.Visible = true
+            Tween(NavBtnFrame, { BackgroundTransparency = 0.05 })
+            Tween(NavLabel,    { TextColor3  = T.TextPrimary  })
+            Tween(NavIcon,     { ImageColor3 = T.Accent       })
         end
 
         Window._connStore:Add(NavBtn.MouseButton1Click:Connect(function()
@@ -663,14 +671,14 @@ function Library:Window(config)
         end))
         Window._connStore:Add(NavBtn.MouseEnter:Connect(function()
             if not Page.Active then
-                Tween(NavBtnFrame, { BackgroundTransparency = 0.6  })
+                Tween(NavBtnFrame, { BackgroundTransparency = 0.3  })
                 Tween(NavLabel,    { TextColor3 = T.TextPrimary    })
             end
         end))
         Window._connStore:Add(NavBtn.MouseLeave:Connect(function()
             if not Page.Active then
-                Tween(NavBtnFrame, { BackgroundTransparency = 1    })
-                Tween(NavLabel,    { TextColor3 = T.TextSecondary  })
+                Tween(NavBtnFrame, { BackgroundTransparency = 1     })
+                Tween(NavLabel,    { TextColor3 = T.TextSecondary   })
             end
         end))
 
@@ -684,7 +692,7 @@ function Library:Window(config)
             local side        = config.Side or 1
             local column      = (side == 2) and self.Side2 or self.Side1
 
-            local Section = { Page = self, _hasElements = false }
+            local Section = { Page = self }
 
             New("TextLabel", {
                 BorderSizePixel = 0, TextSize = 11, FontFace = RFont,
@@ -696,13 +704,13 @@ function Library:Window(config)
 
             local Card = New("Frame", {
                 BorderSizePixel = 0, BackgroundColor3 = T.Section,
-                BackgroundTransparency = 0.5,   -- v4: slightly more transparent
+                BackgroundTransparency = 0.35,
                 Size = UDim2.new(1,0,0,0), AutomaticSize = Enum.AutomaticSize.Y,
                 Name = sectionName, Parent = column,
             })
             New("UICorner", { CornerRadius = UDim.new(0,10), Parent = Card })
             New("UIStroke", {
-                Transparency = 0.41, Thickness = 1.3, Color = T.Stroke, Parent = Card,
+                Transparency = 0.07, Thickness = 1.3, Color = T.Stroke, Parent = Card,
             })
             New("UIPadding", {
                 PaddingTop = UDim.new(0,8), PaddingBottom = UDim.new(0,10),
@@ -716,394 +724,36 @@ function Library:Window(config)
 
             Section.Card = Card
 
-            -- ── Auto-separator between elements ───────────────────────────────
-            local function AddSep()
-                if Section._hasElements then
-                    New("Frame", {
-                        BorderSizePixel = 0, BackgroundColor3 = T.Stroke,
-                        BackgroundTransparency = 0.55,
-                        Size = UDim2.new(1,-6,0,1), Parent = Card,
-                    })
-                end
-                Section._hasElements = true
-            end
-
-            -- ── 3-Dots sub-panel builder ──────────────────────────────────────
-            --  Creates a floating ScrollingFrame parented to ScreenGui.
-            --  Populates it by calling subElemsFn(panel) with a mini-API.
-            --  Returns { Open, Close, IsOpen } functions.
-            local function MakeSubPanel(anchorRow, subElemsFn)
-                if not subElemsFn then return nil end
-
-                -- Floating panel
-                local SubFrame = New("ScrollingFrame", {
-                    BorderSizePixel = 0, BackgroundColor3 = T.Nav,
-                    BackgroundTransparency = 1,
-                    Size = UDim2.new(0, 210, 0, 180),  -- fixed visible size, scrollable
-                    CanvasSize = UDim2.new(0,0,0,0),
-                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                    ScrollBarImageTransparency = 1, ScrollBarThickness = 2,
-                    Visible = false, ZIndex = 200, Name = "SubPanel",
-                    Parent = ScreenGui,
-                })
-                New("UICorner", { CornerRadius = UDim.new(0,10), Parent = SubFrame })
-                New("UIStroke", { Color = T.Stroke, Thickness = 1.2,
-                    Transparency = 1, Parent = SubFrame })
-                New("UIPadding", {
-                    PaddingTop = UDim.new(0,6), PaddingBottom = UDim.new(0,6),
-                    PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8),
-                    Parent = SubFrame,
-                })
-                New("UIListLayout", {
-                    Padding = UDim.new(0,0), SortOrder = Enum.SortOrder.LayoutOrder,
-                    Parent = SubFrame,
-                })
-                local subScale = New("UIScale", { Scale = 0.95, Parent = SubFrame })
-                local subStroke = SubFrame:FindFirstChildOfClass("UIStroke")
-                -- We already created it above, grab a ref:
-                subStroke = SubFrame:FindFirstChildWhichIsA("UIStroke")
-
-                -- Mini panel API (smaller elements: 26px rows, 13px font)
-                local panel = { _hasElements = false }
-                local SUB_H  = 26
-                local SUB_FS = 13
-
-                local function SubAddSep()
-                    if panel._hasElements then
-                        New("Frame", {
-                            BorderSizePixel = 0, BackgroundColor3 = T.Stroke,
-                            BackgroundTransparency = 0.55,
-                            Size = UDim2.new(1,0,0,1), Parent = SubFrame,
-                        })
-                    end
-                    panel._hasElements = true
-                end
-
-                -- Sub:Toggle
-                function panel:Toggle(cfg)
-                    cfg = cfg or {}
-                    local name     = cfg.Name     or "Toggle"
-                    local flag     = cfg.Flag     or name
-                    local default  = cfg.Default  or false
-                    local callback = cfg.Callback or function() end
-                    local value    = default
-                    SubAddSep()
-                    local Row = New("Frame", {
-                        BorderSizePixel = 0, BackgroundColor3 = T.Element,
-                        BackgroundTransparency = 0.9,
-                        Size = UDim2.new(1,0,0,SUB_H), Parent = SubFrame,
-                    })
-                    New("UICorner", { CornerRadius = UDim.new(0,4), Parent = Row })
-                    New("UIPadding", {
-                        PaddingLeft = UDim.new(0,4), PaddingRight = UDim.new(0,4),
-                        PaddingTop = UDim.new(0,2), PaddingBottom = UDim.new(0,2),
-                        Parent = Row,
-                    })
-                    local Title = New("TextLabel", {
-                        BorderSizePixel = 0, TextSize = SUB_FS, FontFace = RFont,
-                        TextXAlignment = Enum.TextXAlignment.Left,
-                        BackgroundTransparency = 1,
-                        TextColor3 = default and T.TextPrimary or T.TextDim,
-                        Text = name, Size = UDim2.new(1,-44,1,0), Parent = Row,
-                    })
-                    local Pill = New("Frame", {
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = default and T.AccentDark or T.ToggleOff,
-                        Size = UDim2.new(0,36,0,18), AnchorPoint = Vector2.new(1,0.5),
-                        Position = UDim2.new(1,0,0.5,0), Parent = Row,
-                    })
-                    New("UICorner", { CornerRadius = UDim.new(0,20), Parent = Pill })
-                    local Circle = New("Frame", {
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = default and T.ToggleCircleOn or T.TextDim,
-                        Size = UDim2.new(0,14,0,14),
-                        Position = default and UDim2.new(1,-16,0.5,-7) or UDim2.new(0,2,0.5,-7),
-                        Parent = Pill,
-                    })
-                    New("UICorner", { CornerRadius = UDim.new(0,100), Parent = Circle })
-                    local Clk = New("TextButton", {
-                        BackgroundTransparency = 1, Size = UDim2.new(1,0,1,0),
-                        Text = "", AutoButtonColor = false, ZIndex = 5, Parent = Row,
-                    })
-                    Library.Flags[flag] = value
-                    local Toggle = { Value = value, Flag = flag }
-                    local function Apply(v, anim)
-                        value = v; Toggle.Value = v; Library.Flags[flag] = v
-                        local pc = v and T.AccentDark    or T.ToggleOff
-                        local cc = v and T.ToggleCircleOn or T.TextDim
-                        local cp = v and UDim2.new(1,-16,0.5,-7) or UDim2.new(0,2,0.5,-7)
-                        if anim then
-                            Tween(Pill,   { BackgroundColor3 = pc })
-                            Tween(Circle, { BackgroundColor3 = cc, Position = cp })
-                            Tween(Title,  { TextColor3 = v and T.TextPrimary or T.TextDim })
-                        else
-                            Pill.BackgroundColor3 = pc; Circle.BackgroundColor3 = cc
-                            Circle.Position = cp
-                            Title.TextColor3 = v and T.TextPrimary or T.TextDim
-                        end
-                        SafeCall(callback, v)
-                    end
-                    Apply(value, false)
-                    Window._connStore:Add(Clk.MouseButton1Click:Connect(function()
-                        Apply(not value, true)
-                    end))
-                    function Toggle:Set(v) Apply(v, true) end
-                    function Toggle:Get() return value    end
-                    return Toggle
-                end
-
-                -- Sub:Slider
-                function panel:Slider(cfg)
-                    cfg = cfg or {}
-                    local name     = cfg.Name     or "Slider"
-                    local flag     = cfg.Flag     or name
-                    local minV     = cfg.Min      or 0
-                    local maxV     = cfg.Max      or 100
-                    local default  = cfg.Default  or minV
-                    local decimals = cfg.Decimals or 0
-                    local suffix   = cfg.Suffix   or ""
-                    local callback = cfg.Callback or function() end
-                    local value    = default
-                    SubAddSep()
-                    local Container = New("Frame", {
-                        BorderSizePixel = 0, BackgroundTransparency = 1,
-                        Size = UDim2.new(1,0,0,38), Parent = SubFrame,
-                    })
-                    New("UIPadding", {
-                        PaddingLeft = UDim.new(0,4), PaddingRight = UDim.new(0,4),
-                        PaddingTop = UDim.new(0,2), PaddingBottom = UDim.new(0,2),
-                        Parent = Container,
-                    })
-                    New("TextLabel", {
-                        BorderSizePixel = 0, TextSize = SUB_FS, FontFace = RFont,
-                        TextXAlignment = Enum.TextXAlignment.Left,
-                        BackgroundTransparency = 1, TextColor3 = T.TextPrimary,
-                        Text = name, Size = UDim2.new(0.6,0,0,16),
-                        Position = UDim2.new(0,0,0,1), Parent = Container,
-                    })
-                    local VBg = New("Frame", {
-                        BorderSizePixel = 0, BackgroundColor3 = T.ElementDark,
-                        Size = UDim2.new(0,40,0,18), AnchorPoint = Vector2.new(1,0),
-                        Position = UDim2.new(1,0,0,0), Parent = Container,
-                    })
-                    New("UICorner", { Parent = VBg })
-                    local VLbl = New("TextLabel", {
-                        BorderSizePixel = 0, TextSize = 11, FontFace = RFont,
-                        BackgroundTransparency = 1, TextColor3 = T.TextValue,
-                        Text = tostring(value)..suffix,
-                        Size = UDim2.new(1,0,1,0), Parent = VBg,
-                    })
-                    local Track = New("Frame", {
-                        BorderSizePixel = 0, BackgroundColor3 = T.Track,
-                        Size = UDim2.new(1,-46,0,5), AnchorPoint = Vector2.new(0,1),
-                        Position = UDim2.new(0,0,1,-1), Parent = Container,
-                    })
-                    New("UICorner", { Parent = Track })
-                    local Fill = New("Frame", {
-                        BorderSizePixel = 0, BackgroundColor3 = T.Accent,
-                        Size = UDim2.new(0,0,1,0), Parent = Track,
-                    })
-                    New("UICorner", { Parent = Fill })
-                    local Knob = New("Frame", {
-                        BorderSizePixel = 0, BackgroundColor3 = T.SliderCircle,
-                        Size = UDim2.new(0,11,0,11), AnchorPoint = Vector2.new(0.5,0.5),
-                        Position = UDim2.new(0,0,0.5,0), ZIndex = 3, Parent = Track,
-                    })
-                    New("UICorner", { CornerRadius = UDim.new(0,100), Parent = Knob })
-                    Library.Flags[flag] = value
-                    local Slider = { Value = value, Flag = flag }
-                    local sliding = false
-                    local function SetVal(v, anim)
-                        v = Round(math.clamp(v, minV, maxV), decimals)
-                        value = v; Slider.Value = v; Library.Flags[flag] = v
-                        local t = (maxV ~= minV) and ((v-minV)/(maxV-minV)) or 0
-                        if anim then
-                            Tween(Fill, { Size = UDim2.new(t,0,1,0) })
-                            Tween(Knob, { Position = UDim2.new(t,0,0.5,0) })
-                        else
-                            Fill.Size = UDim2.new(t,0,1,0)
-                            Knob.Position = UDim2.new(t,0,0.5,0)
-                        end
-                        VLbl.Text = tostring(v)..suffix
-                        SafeCall(callback, v)
-                    end
-                    local function PI(pos)
-                        local w = Track.AbsoluteSize.X
-                        if w == 0 then return end
-                        SetVal(minV + (maxV-minV) * math.clamp(
-                            (pos.X - Track.AbsolutePosition.X) / w, 0, 1), false)
-                    end
-                    Window._connStore:Add(Track.InputBegan:Connect(function(i)
-                        if i.UserInputType == Enum.UserInputType.MouseButton1
-                        or i.UserInputType == Enum.UserInputType.Touch then
-                            sliding = true; PI(i.Position)
-                        end
-                    end))
-                    Window._connStore:Add(UserInputService.InputChanged:Connect(function(i)
-                        if not sliding then return end
-                        if i.UserInputType == Enum.UserInputType.MouseMovement
-                        or i.UserInputType == Enum.UserInputType.Touch then PI(i.Position) end
-                    end))
-                    Window._connStore:Add(UserInputService.InputEnded:Connect(function(i)
-                        if i.UserInputType == Enum.UserInputType.MouseButton1
-                        or i.UserInputType == Enum.UserInputType.Touch then sliding = false end
-                    end))
-                    SetVal(value, false)
-                    function Slider:Set(v) SetVal(v, true) end
-                    function Slider:Get() return value      end
-                    return Slider
-                end
-
-                -- Sub:Button
-                function panel:Button(cfg)
-                    cfg = cfg or {}
-                    local name     = cfg.Name     or "Button"
-                    local callback = cfg.Callback or function() end
-                    SubAddSep()
-                    local Btn = New("TextButton", {
-                        BorderSizePixel = 0, BackgroundColor3 = T.Accent,
-                        BackgroundTransparency = 0.82,
-                        Size = UDim2.new(1,0,0,24), AutoButtonColor = false,
-                        Text = "", Name = name, Parent = SubFrame,
-                    })
-                    New("UICorner", { CornerRadius = UDim.new(0,5), Parent = Btn })
-                    New("UIStroke", { Color = T.Accent, Transparency = 0.65, Thickness = 1, Parent = Btn })
-                    New("TextLabel", {
-                        BorderSizePixel = 0, TextSize = SUB_FS, FontFace = RFont,
-                        BackgroundTransparency = 1, TextColor3 = T.TextPrimary,
-                        Text = name, Size = UDim2.new(1,0,1,0), Parent = Btn,
-                    })
-                    Window._connStore:Add(Btn.MouseEnter:Connect(function()
-                        Tween(Btn, { BackgroundTransparency = 0.55 })
-                    end))
-                    Window._connStore:Add(Btn.MouseLeave:Connect(function()
-                        Tween(Btn, { BackgroundTransparency = 0.82 })
-                    end))
-                    Window._connStore:Add(Btn.MouseButton1Click:Connect(function()
-                        Tween(Btn, { BackgroundTransparency = 0.25 })
-                        task.delay(0.15, function() Tween(Btn, { BackgroundTransparency = 0.82 }) end)
-                        SafeCall(callback)
-                    end))
-                    return { Name = name, Instance = Btn }
-                end
-
-                -- Populate sub-panel with user's elements
-                SafeCall(subElemsFn, panel)
-
-                -- Open / Close logic with fade+scale animation
-                local isSubOpen  = false
-                local isSubClose = false
-
-                local function OpenSub()
-                    if isSubOpen then return end
-                    isSubOpen = true; isSubClose = false
-                    local ap  = anchorRow.AbsolutePosition
-                    local as  = anchorRow.AbsoluteSize
-                    local vp  = Camera.ViewportSize
-                    local pH  = 180
-                    local pW  = math.max(as.X, 180)
-                    local pY  = ap.Y + as.Y + 6
-                    if pY + pH > vp.Y - 10 then pY = ap.Y - pH - 6 end
-                    SubFrame.Position = UDim2.new(0, ap.X, 0, pY)
-                    SubFrame.Size     = UDim2.new(0, pW, 0, pH)
-                    SubFrame.BackgroundTransparency = 1
-                    subStroke.Transparency = 1
-                    subScale.Scale = 0.95
-                    SubFrame.Visible = true
-                    Tween(SubFrame,  { BackgroundTransparency = 0.05 }, 0.18)
-                    Tween(subStroke, { Transparency = 0              }, 0.18)
-                    Tween(subScale,  { Scale = 1.0                   }, 0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                end
-
-                local function CloseSub()
-                    if not isSubOpen then return end
-                    isSubOpen = false; isSubClose = true
-                    Tween(SubFrame,  { BackgroundTransparency = 1 }, 0.13)
-                    Tween(subStroke, { Transparency = 1           }, 0.13)
-                    Tween(subScale,  { Scale = 0.95               }, 0.13)
-                    task.delay(0.15, function()
-                        if isSubClose then SubFrame.Visible = false; isSubClose = false end
-                    end)
-                end
-
-                -- Close when clicking outside the sub-panel
-                Window._connStore:Add(UserInputService.InputBegan:Connect(function(input)
-                    if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-                    if not isSubOpen then return end
-                    local mp = input.Position
-                    local ap = SubFrame.AbsolutePosition
-                    local as = SubFrame.AbsoluteSize
-                    if not (mp.X >= ap.X and mp.X <= ap.X+as.X and mp.Y >= ap.Y and mp.Y <= ap.Y+as.Y) then
-                        CloseSub()
-                    end
-                end))
-
-                return { Open = OpenSub, Close = CloseSub, IsOpen = function() return isSubOpen end }
-            end
-
-            -- Helper to attach a 3-dots button to an existing row frame
-            local function AttachDots(row, subElemsFn)
-                if not subElemsFn then return end
-                local dotsBtn = New("TextButton", {
-                    BorderSizePixel = 0, BackgroundTransparency = 1,
-                    Text = "...", TextSize = 20, FontFace = RFontBold,
-                    TextColor3 = T.TextDim,
-                    Size = UDim2.new(0,22,0,22), AnchorPoint = Vector2.new(1,0.5),
-                    Position = UDim2.new(1,0,0.5,0),
-                    AutoButtonColor = false, ZIndex = 6, Parent = row,
-                })
-                local sp = MakeSubPanel(row, subElemsFn)
-                Window._connStore:Add(dotsBtn.MouseButton1Click:Connect(function()
-                    if sp.IsOpen() then sp.Close() else sp.Open() end
-                end))
-                Window._connStore:Add(dotsBtn.MouseEnter:Connect(function()
-                    Tween(dotsBtn, { TextColor3 = T.TextPrimary })
-                end))
-                Window._connStore:Add(dotsBtn.MouseLeave:Connect(function()
-                    Tween(dotsBtn, { TextColor3 = T.TextDim })
-                end))
-            end
-
             -- ── Toggle ────────────────────────────────────────────────────────
             function Section:Toggle(config)
                 config = config or {}
-                local name       = config.Name        or "Toggle"
-                local flag       = config.Flag        or name
-                local default    = config.Default     or false
-                local callback   = config.Callback    or function() end
-                local subElemsFn = config.SubElements
-                local value      = default
-
-                AddSep()
+                local name     = config.Name     or "Toggle"
+                local flag     = config.Flag     or name
+                local default  = config.Default  or false
+                local callback = config.Callback or function() end
+                local value    = default
 
                 local Row = New("Frame", {
-                    BorderSizePixel = 0,
-                    BackgroundColor3 = T.Element, BackgroundTransparency = 0.9,
+                    BorderSizePixel = 0, BackgroundTransparency = 1,
                     Size = UDim2.new(1,0,0,30), Name = name, Parent = Card,
                 })
-                New("UICorner", { CornerRadius = UDim.new(0,4), Parent = Row })
                 New("UIPadding", {
                     PaddingTop = UDim.new(0,2), PaddingBottom = UDim.new(0,2),
                     PaddingLeft = UDim.new(0,4), PaddingRight = UDim.new(0,4),
                     Parent = Row,
                 })
-
-                -- Reserve room for dots button if needed
-                local titleW = subElemsFn and UDim2.new(1,-80,1,0) or UDim2.new(1,-56,1,0)
-
                 local Title = New("TextLabel", {
                     BorderSizePixel = 0, TextSize = 15,
                     TextXAlignment = Enum.TextXAlignment.Left, FontFace = RFont,
                     BackgroundTransparency = 1,
                     TextColor3 = default and T.TextPrimary or T.TextDim,
-                    Text = name, Size = titleW, Parent = Row,
+                    Text = name, Size = UDim2.new(1,-56,1,0), Parent = Row,
                 })
                 local Pill = New("Frame", {
                     BorderSizePixel = 0,
                     BackgroundColor3 = default and T.AccentDark or T.ToggleOff,
                     Size = UDim2.new(0,44,0,24), AnchorPoint = Vector2.new(1,0.5),
-                    Position = subElemsFn and UDim2.new(1,-26,0.5,0) or UDim2.new(1,0,0.5,0),
-                    Parent = Row,
+                    Position = UDim2.new(1,0,0.5,0), Parent = Row,
                 })
                 New("UICorner", { CornerRadius = UDim.new(0,20), Parent = Pill })
                 local Circle = New("Frame", {
@@ -1119,8 +769,6 @@ function Library:Window(config)
                     Text = "", AutoButtonColor = false, ZIndex = 5, Parent = Row,
                 })
 
-                AttachDots(Row, subElemsFn)
-
                 Library.Flags[flag] = value
                 local Toggle = { Value = value, Flag = flag }
 
@@ -1129,15 +777,16 @@ function Library:Window(config)
                     local pc = v and T.AccentDark    or T.ToggleOff
                     local cc = v and T.ToggleCircleOn or T.TextDim
                     local cp = v and UDim2.new(1,-21,0.5,-9) or UDim2.new(0,2,0.5,-9)
+                    local tc = v and T.TextPrimary or T.TextDim
                     if animated then
                         Tween(Pill,   { BackgroundColor3 = pc })
                         Tween(Circle, { BackgroundColor3 = cc, Position = cp })
-                        Tween(Title,  { TextColor3 = v and T.TextPrimary or T.TextDim })
+                        Tween(Title,  { TextColor3 = tc })
                     else
                         Pill.BackgroundColor3   = pc
                         Circle.BackgroundColor3 = cc
                         Circle.Position         = cp
-                        Title.TextColor3 = v and T.TextPrimary or T.TextDim
+                        Title.TextColor3        = tc
                     end
                     SafeCall(callback, v)
                 end
@@ -1152,23 +801,19 @@ function Library:Window(config)
                 return Toggle
             end
 
-            -- ── Slider  (visuals unchanged per request) ───────────────────────
+            -- ── Slider ────────────────────────────────────────────────────────
             function Section:Slider(config)
                 config = config or {}
-                local name       = config.Name     or "Slider"
-                local flag       = config.Flag     or name
-                local minV       = config.Min      or 0
-                local maxV       = config.Max      or 100
-                local default    = config.Default  or minV
-                local decimals   = config.Decimals or 0
-                local suffix     = config.Suffix   or ""
-                local callback   = config.Callback or function() end
-                local subElemsFn = config.SubElements
-                local value      = default
+                local name     = config.Name     or "Slider"
+                local flag     = config.Flag     or name
+                local minV     = config.Min      or 0
+                local maxV     = config.Max      or 100
+                local default  = config.Default  or minV
+                local decimals = config.Decimals or 0
+                local suffix   = config.Suffix   or ""
+                local callback = config.Callback or function() end
+                local value    = default
 
-                AddSep()
-
-                -- Slider keeps BackgroundTransparency = 1 (no row tint)
                 local Container = New("Frame", {
                     BorderSizePixel = 0, BackgroundTransparency = 1,
                     Size = UDim2.new(1,0,0,46), Name = name, Parent = Card,
@@ -1215,8 +860,6 @@ function Library:Window(config)
                 })
                 New("UICorner", { CornerRadius = UDim.new(0,100), Parent = DragCircle })
 
-                AttachDots(Container, subElemsFn)
-
                 Library.Flags[flag] = value
                 local Slider  = { Value = value, Flag = flag }
                 local sliding = false
@@ -1226,8 +869,8 @@ function Library:Window(config)
                     value = v; Slider.Value = v; Library.Flags[flag] = v
                     local t = (maxV ~= minV) and ((v-minV)/(maxV-minV)) or 0
                     if animated then
-                        Tween(Fill,       { Size = UDim2.new(t,0,1,0)       })
-                        Tween(DragCircle, { Position = UDim2.new(t,0,0.5,0) })
+                        Tween(Fill,       { Size = UDim2.new(t,0,1,0)          })
+                        Tween(DragCircle, { Position = UDim2.new(t,0,0.5,0)    })
                     else
                         Fill.Size = UDim2.new(t,0,1,0)
                         DragCircle.Position = UDim2.new(t,0,0.5,0)
@@ -1269,23 +912,19 @@ function Library:Window(config)
                 return Slider
             end
 
-            -- ── Dropdown  (v4: searchbar, checkmark, updated value box) ───────
+            -- ── Dropdown  (fade + scale in / out) ─────────────────────────────
             function Section:Dropdown(config)
                 config = config or {}
-                local name            = config.Name             or "Dropdown"
-                local flag            = config.Flag             or name
-                local items           = config.Items            or {}
-                local default         = config.Default          or ""
-                local multi           = config.Multi            or false
-                local callback        = config.Callback         or function() end
-                local searchEnabled   = config.SearchbarEnabled or false
-                local subElemsFn      = config.SubElements
+                local name     = config.Name     or "Dropdown"
+                local flag     = config.Flag     or name
+                local items    = config.Items    or {}
+                local default  = config.Default  or ""
+                local multi    = config.Multi    or false
+                local callback = config.Callback or function() end
 
                 local value   = multi and {} or default
                 local isOpen  = false
                 local closing = false
-
-                AddSep()
 
                 local Outer = New("Frame", {
                     BorderSizePixel = 0, BackgroundTransparency = 1,
@@ -1293,11 +932,9 @@ function Library:Window(config)
                     Name = name, Parent = Card,
                 })
                 local Header = New("Frame", {
-                    BorderSizePixel = 0, BackgroundColor3 = T.Element,
-                    BackgroundTransparency = 0.9,
+                    BorderSizePixel = 0, BackgroundTransparency = 1,
                     Size = UDim2.new(1,0,0,30), Parent = Outer,
                 })
-                New("UICorner", { CornerRadius = UDim.new(0,4), Parent = Header })
                 New("UIPadding", {
                     PaddingTop = UDim.new(0,2), PaddingBottom = UDim.new(0,2),
                     PaddingLeft = UDim.new(0,4), PaddingRight = UDim.new(0,4),
@@ -1307,16 +944,13 @@ function Library:Window(config)
                     BorderSizePixel = 0, TextSize = 15,
                     TextXAlignment = Enum.TextXAlignment.Left, FontFace = RFont,
                     BackgroundTransparency = 1, TextColor3 = T.TextPrimary,
-                    Text = name..":", Size = UDim2.new(0.44,0,1,0), Parent = Header,
+                    Text = name..":", Size = UDim2.new(0.45,0,1,0), Parent = Header,
                 })
-
-                -- v4 value box: fixed size, left-anchored at 44% + 4px offset
                 local ValueBox = New("Frame", {
                     BorderSizePixel = 0, BackgroundColor3 = T.ElementDark,
                     BackgroundTransparency = 0.4,
-                    Size = UDim2.new(0.44,-16,0,22),
-                    AnchorPoint = Vector2.new(0,0.5),
-                    Position = UDim2.new(0.46,2,0.5,0),
+                    Size = UDim2.new(0.47,-14,0,22),
+                    AnchorPoint = Vector2.new(1,0.5), Position = UDim2.new(1,-14,0.5,0),
                     Parent = Header,
                 })
                 New("UICorner", { CornerRadius = UDim.new(0,5), Parent = ValueBox })
@@ -1333,83 +967,36 @@ function Library:Window(config)
                     BorderSizePixel = 0, BackgroundTransparency = 1,
                     ImageColor3 = T.TextMuted, AnchorPoint = Vector2.new(1,0.5),
                     Image = "rbxassetid://84949494757640",
-                    Size = UDim2.new(0,10,0,10),
-                    Position = UDim2.new(1,0,0.5,0),
+                    Size = UDim2.new(0,10,0,10), Position = UDim2.new(1,0,0.5,0),
                     Parent = Header,
                 })
 
-                AttachDots(Header, subElemsFn)
-
-                -- ── Options panel (parented to ScreenGui to avoid clipping) ───
+                -- Options panel — parented to ScreenGui to escape all clipping
                 local OptionsList = New("Frame", {
-                    BorderSizePixel = 0, BackgroundColor3 = T.Nav,
-                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0, BackgroundColor3 = T.ElementDark,
+                    BackgroundTransparency = 1,   -- invisible until open
                     Size = UDim2.new(0,200,0,0),
+                    AutomaticSize = Enum.AutomaticSize.Y,
                     Visible = false, ZIndex = 100,
                     Name = name.."_Options", Parent = ScreenGui,
                 })
-                New("UICorner", { CornerRadius = UDim.new(0,10), Parent = OptionsList })
+                New("UICorner", { CornerRadius = UDim.new(0,6), Parent = OptionsList })
                 local ddStroke = New("UIStroke", {
                     Color = T.Stroke, Thickness = 1, Transparency = 1,
                     Parent = OptionsList,
                 })
                 New("UIPadding", {
-                    PaddingTop = UDim.new(0,6), PaddingBottom = UDim.new(0,6),
-                    PaddingLeft = UDim.new(0,6), PaddingRight = UDim.new(0,6),
+                    PaddingTop = UDim.new(0,4), PaddingBottom = UDim.new(0,4),
+                    PaddingLeft = UDim.new(0,4), PaddingRight = UDim.new(0,4),
                     Parent = OptionsList,
                 })
                 New("UIListLayout", {
-                    Padding = UDim.new(0,4), SortOrder = Enum.SortOrder.LayoutOrder,
+                    Padding = UDim.new(0,2), SortOrder = Enum.SortOrder.LayoutOrder,
                     Parent = OptionsList,
                 })
                 local ddScale = New("UIScale", { Scale = 0.96, Parent = OptionsList })
 
-                -- Optional Searchbar
-                local SearchInput = nil
-                if searchEnabled then
-                    local SBar = New("Frame", {
-                        BorderSizePixel = 0, BackgroundColor3 = T.ElementDark,
-                        Size = UDim2.new(1,0,0,26), ZIndex = 101,
-                        Name = "Searchbar", Parent = OptionsList,
-                    })
-                    New("UICorner", { CornerRadius = UDim.new(0,6), Parent = SBar })
-                    SearchInput = New("TextBox", {
-                        BorderSizePixel = 0, BackgroundTransparency = 1,
-                        TextSize = 12, FontFace = RFont,
-                        TextColor3 = T.TextSecondary, PlaceholderColor3 = T.TextMuted,
-                        PlaceholderText = "Search...",
-                        TextXAlignment = Enum.TextXAlignment.Left,
-                        Text = "", ClearTextOnFocus = false,
-                        Size = UDim2.new(1,-26,1,0), Position = UDim2.new(0,8,0,0),
-                        ZIndex = 102, Name = "Input", Parent = SBar,
-                    })
-                    New("ImageLabel", {
-                        BorderSizePixel = 0, BackgroundTransparency = 1,
-                        ImageColor3 = T.TextMuted, AnchorPoint = Vector2.new(1,0.5),
-                        Image = "rbxassetid://10734943674",
-                        Size = UDim2.new(0,13,0,13),
-                        Position = UDim2.new(1,-5,0.5,0),
-                        ZIndex = 102, Parent = SBar,
-                    })
-                end
-
-                -- Scrollable options holder
-                local OptionsHolder = New("ScrollingFrame", {
-                    BorderSizePixel = 0, BackgroundTransparency = 1,
-                    Size = UDim2.new(1,0,0,120),    -- resized on open
-                    CanvasSize = UDim2.new(0,0,0,0),
-                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                    ScrollBarImageTransparency = 0.7,
-                    ScrollBarImageColor3 = T.Stroke,
-                    ScrollBarThickness = 2,
-                    ZIndex = 101, Name = "OptionsHolder", Parent = OptionsList,
-                })
-                New("UIListLayout", {
-                    Padding = UDim.new(0,2), SortOrder = Enum.SortOrder.LayoutOrder,
-                    Parent = OptionsHolder,
-                })
-
-                local Dropdown    = { Value = value, Flag = flag, Options = {} }
+                local Dropdown = { Value = value, Flag = flag, Options = {} }
                 Library.Flags[flag] = value
 
                 local DD_IN  = 0.18
@@ -1419,7 +1006,6 @@ function Library:Window(config)
                     Tween(opt.Btn,   { BackgroundTransparency = selected and 0 or 1,
                                        BackgroundColor3 = T.AccentDark })
                     Tween(opt.Label, { TextColor3 = selected and T.TextPrimary or T.TextSecondary })
-                    if opt.Check then opt.Check.Visible = selected end
                 end
 
                 local function UpdateValueLabel()
@@ -1428,31 +1014,18 @@ function Library:Window(config)
                         or  tostring(Dropdown.Value or "")
                 end
 
-                local function FilterOptions(query)
-                    if not searchEnabled then return end
-                    query = query:lower()
-                    for _, o in ipairs(Dropdown.Options) do
-                        local m = query == "" or tostring(o.Value):lower():find(query, 1, true)
-                        o.Btn.Visible = (m ~= nil and m ~= false)
-                    end
-                end
-
                 local function RepositionList()
                     local ap = Header.AbsolutePosition
                     local as = Header.AbsoluteSize
-                    local nOpts = math.min(#Dropdown.Options, 6)
-                    local optsH = nOpts * 28 + 8
-                    local barH  = searchEnabled and 32 or 0
-                    local total = optsH + barH + 16
                     OptionsList.Position = UDim2.new(0, ap.X, 0, ap.Y + as.Y + 4)
-                    OptionsList.Size     = UDim2.new(0, as.X, 0, total)
-                    OptionsHolder.Size   = UDim2.new(1,0,0,optsH)
+                    OptionsList.Size     = UDim2.new(0, as.X, 0, 0)
                 end
 
                 local function OpenDropdown()
                     if isOpen then return end
                     isOpen = true; closing = false
                     RepositionList()
+                    -- Reset to invisible before showing
                     OptionsList.BackgroundTransparency = 1
                     ddStroke.Transparency = 1
                     ddScale.Scale = 0.96
@@ -1460,17 +1033,15 @@ function Library:Window(config)
                         o.Label.TextTransparency = 1
                     end
                     OptionsList.Visible = true
-                    Tween(OptionsList, { BackgroundTransparency = 0.05 }, DD_IN)
-                    Tween(ddStroke,    { Transparency = 0              }, DD_IN)
-                    Tween(ddScale,     { Scale = 1.0                   }, DD_IN,
+                    -- Animate in
+                    Tween(OptionsList, { BackgroundTransparency = 0 }, DD_IN)
+                    Tween(ddStroke,    { Transparency = 0           }, DD_IN)
+                    Tween(ddScale,     { Scale = 1.0               }, DD_IN,
                           Enum.EasingStyle.Back, Enum.EasingDirection.Out)
                     for _, o in ipairs(Dropdown.Options) do
                         Tween(o.Label, { TextTransparency = 0 }, DD_IN)
                     end
                     Tween(Arrow, { Rotation = 180 }, DD_IN)
-                    if searchEnabled and SearchInput then
-                        SearchInput.Text = ""; FilterOptions("")
-                    end
                 end
 
                 local function CloseDropdown()
@@ -1478,20 +1049,16 @@ function Library:Window(config)
                     isOpen = false; closing = true
                     Tween(OptionsList, { BackgroundTransparency = 1 }, DD_OUT)
                     Tween(ddStroke,    { Transparency = 1           }, DD_OUT)
-                    Tween(ddScale,     { Scale = 0.96               }, DD_OUT)
+                    Tween(ddScale,     { Scale = 0.96              }, DD_OUT)
                     for _, o in ipairs(Dropdown.Options) do
                         Tween(o.Label, { TextTransparency = 1 }, DD_OUT)
                     end
                     Tween(Arrow, { Rotation = 0 }, DD_OUT)
                     task.delay(DD_OUT + 0.02, function()
-                        if closing then OptionsList.Visible = false; closing = false end
+                        if closing then
+                            OptionsList.Visible = false; closing = false
+                        end
                     end)
-                end
-
-                if searchEnabled and SearchInput then
-                    Window._connStore:Add(SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
-                        FilterOptions(SearchInput.Text)
-                    end))
                 end
 
                 local HeaderBtn = New("TextButton", {
@@ -1501,15 +1068,16 @@ function Library:Window(config)
                 Window._connStore:Add(HeaderBtn.MouseButton1Click:Connect(function()
                     if isOpen then CloseDropdown() else OpenDropdown() end
                 end))
+
                 Window._connStore:Add(UserInputService.InputBegan:Connect(function(input)
                     if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
                     if not isOpen then return end
                     local mp = input.Position
                     local ap = OptionsList.AbsolutePosition
                     local as = OptionsList.AbsoluteSize
-                    if not (mp.X >= ap.X and mp.X <= ap.X+as.X and mp.Y >= ap.Y and mp.Y <= ap.Y+as.Y) then
-                        CloseDropdown()
-                    end
+                    local inside = mp.X >= ap.X and mp.X <= ap.X+as.X
+                              and  mp.Y >= ap.Y and mp.Y <= ap.Y+as.Y
+                    if not inside then CloseDropdown() end
                 end))
 
                 local function AddOption(item)
@@ -1518,40 +1086,21 @@ function Library:Window(config)
                         BackgroundTransparency = 1,
                         Size = UDim2.new(1,0,0,26), ZIndex = 101,
                         AutoButtonColor = false, Text = "",
-                        Name = tostring(item), Parent = OptionsHolder,
+                        Name = tostring(item), Parent = OptionsList,
                     })
-                    New("UICorner", { CornerRadius = UDim.new(0,6), Parent = optBtn })
+                    New("UICorner", { CornerRadius = UDim.new(0,5), Parent = optBtn })
                     local optLabel = New("TextLabel", {
                         BorderSizePixel = 0, TextSize = 13,
                         TextXAlignment = Enum.TextXAlignment.Left, FontFace = RFont,
                         BackgroundTransparency = 1, TextColor3 = T.TextSecondary,
-                        TextTransparency = 1, ZIndex = 102,
-                        Text = tostring(item),
-                        Size = UDim2.new(1,-26,1,0), Position = UDim2.new(0,8,0,0),
+                        TextTransparency = 1,   -- hidden until dropdown opens
+                        ZIndex = 102, Text = tostring(item),
+                        Size = UDim2.new(1,-8,1,0), Position = UDim2.new(0,8,0,0),
                         Parent = optBtn,
                     })
-                    -- Checkmark for selected
-                    local checkIcon = New("ImageLabel", {
-                        BorderSizePixel = 0, BackgroundTransparency = 1,
-                        ImageColor3 = T.TextPrimary,
-                        AnchorPoint = Vector2.new(1,0.5),
-                        Image = "rbxassetid://10709790644",
-                        Size = UDim2.new(0,13,0,13),
-                        Position = UDim2.new(1,-4,0.5,0),
-                        ZIndex = 102, Visible = false,
-                        Name = "Check", Parent = optBtn,
-                    })
-                    local optData = { Value = item, Btn = optBtn, Label = optLabel, Check = checkIcon }
+                    local optData = { Value = item, Btn = optBtn, Label = optLabel }
                     table.insert(Dropdown.Options, optData)
 
-                    Window._connStore:Add(optBtn.MouseEnter:Connect(function()
-                        local sel = multi and table.find(Dropdown.Value, item) or Dropdown.Value == item
-                        if not sel then Tween(optBtn, { BackgroundTransparency = 0.75 }) end
-                    end))
-                    Window._connStore:Add(optBtn.MouseLeave:Connect(function()
-                        local sel = multi and table.find(Dropdown.Value, item) or Dropdown.Value == item
-                        Tween(optBtn, { BackgroundTransparency = sel and 0 or 1 })
-                    end))
                     Window._connStore:Add(optBtn.MouseButton1Click:Connect(function()
                         if multi then
                             local idx = table.find(Dropdown.Value, item)
@@ -1612,22 +1161,14 @@ function Library:Window(config)
             -- ── Button ────────────────────────────────────────────────────────
             function Section:Button(config)
                 config = config or {}
-                local name       = config.Name     or "Button"
-                local callback   = config.Callback or function() end
-                local subElemsFn = config.SubElements
+                local name     = config.Name     or "Button"
+                local callback = config.Callback or function() end
 
-                AddSep()
-
-                local Row = New("Frame", {
-                    BorderSizePixel = 0, BackgroundTransparency = 1,
-                    Size = UDim2.new(1,0,0,30), Name = name, Parent = Card,
-                })
-                local btnW = subElemsFn and UDim2.new(1,-28,1,0) or UDim2.new(1,0,1,0)
                 local Btn = New("TextButton", {
                     BorderSizePixel = 0, BackgroundColor3 = T.Accent,
                     BackgroundTransparency = 0.82,
-                    Size = btnW, AutoButtonColor = false,
-                    Text = "", Name = name, Parent = Row,
+                    Size = UDim2.new(1,0,0,30), AutoButtonColor = false,
+                    Text = "", Name = name, Parent = Card,
                 })
                 New("UICorner", { CornerRadius = UDim.new(0,6), Parent = Btn })
                 New("UIStroke", { Color = T.Accent, Transparency = 0.65, Thickness = 1, Parent = Btn })
@@ -1636,9 +1177,6 @@ function Library:Window(config)
                     BackgroundTransparency = 1, TextColor3 = T.TextPrimary,
                     Text = name, Size = UDim2.new(1,0,1,0), Parent = Btn,
                 })
-
-                AttachDots(Row, subElemsFn)
-
                 Window._connStore:Add(Btn.MouseEnter:Connect(function()
                     Tween(Btn, { BackgroundTransparency = 0.55 })
                 end))
@@ -1659,9 +1197,6 @@ function Library:Window(config)
             function Section:Label(config)
                 config = config or {}
                 local text = config.Text or config.Name or "Label"
-
-                AddSep()
-
                 local Lbl = New("TextLabel", {
                     BorderSizePixel = 0, TextSize = 13,
                     TextXAlignment = Enum.TextXAlignment.Left, FontFace = RFont,
@@ -1675,11 +1210,10 @@ function Library:Window(config)
                 return Label
             end
 
-            -- ── Separator (manual, in addition to auto-separators) ─────────────
+            -- ── Separator ─────────────────────────────────────────────────────
             function Section:Separator()
                 New("Frame", {
                     BorderSizePixel = 0, BackgroundColor3 = T.Stroke,
-                    BackgroundTransparency = 0.4,
                     Size = UDim2.new(1,0,0,1), Parent = Card,
                 })
                 return self
