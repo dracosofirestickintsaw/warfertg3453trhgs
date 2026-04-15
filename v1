@@ -8374,9 +8374,6 @@ end
 
 getgenv().Library = Library
 
-local CustomerUi = Library:Panel({
-    Size = Dim2(0, 860, 0, 590),
-})
 
 end
 
