@@ -7060,7 +7060,7 @@ function Library:Panel(options)
         PING = true,
         Time = true,
     }
-    local WatermarkEnabled = false
+    local WatermarkEnabled = true
 
     local WatermarkCard = self:CreateInstance("Frame", {
         Parent = screen,
