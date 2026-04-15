@@ -8374,7 +8374,4 @@ end
 
 getgenv().Library = Library
 
-
-end
-
 return Library
