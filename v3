@@ -4204,6 +4204,59 @@ function Library:Panel(options)
         end
     end)
 
+    local ToggleButton = self:CreateInstance("TextButton", {
+    Parent = screen,
+    Name = "toggle_button",
+    AnchorPoint = Vector2.new(0, 1),
+    Position = Dim2(0, 20, 1, -90),
+    Size = Dim2(0, 70, 0, 70),
+    BackgroundColor3 = Palette.Swatches.control,
+    BorderSizePixel = 0,
+    Text = "",
+    AutoButtonColor = false,
+    ZIndex = 170,
+    })
+    self:CreateInstance("UICorner", {
+        Parent = ToggleButton,
+        CornerRadius = Dim(0, 10),
+    })
+    self:CreateInstance("UIStroke", {
+        Parent = ToggleButton,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Color = Rgb(37, 37, 37),
+        Thickness = 1.5,
+    })
+
+    -- Add the logo icon inside it
+    local ToggleIcon = self:CreateInstance("ImageLabel", {
+        Parent = ToggleButton,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = Dim2(0.5, 0, 0.5, 0),
+        Size = Dim2(0, 42, 0, 42),
+        Image = options.Logo or options.logo or "rbxassetid://133218922939038",
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 171,
+    })
+
+    -- Make it draggable independently of the main panel
+    self:MakeDraggable(ToggleButton)
+
+    -- Wire the click to show/hide the main panel
+    local PanelVisible = true
+    self:Connection(ToggleButton.MouseButton1Down, function()
+        PanelVisible = not PanelVisible
+        main.Visible = PanelVisible
+        -- close any open popups when hiding
+        if not PanelVisible then
+            if CloseFolderPopup then CloseFolderPopup() end
+            if CloseSettingsPopup then CloseSettingsPopup() end
+            if self._DropdownClose then self._DropdownClose() end
+            self:CloseElement(nil)
+        end
+    end)
+
     local SidebarTabStack = self:CreateInstance("Frame", {
         Parent = SidebarInner,
         Name = "\0",
