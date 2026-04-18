@@ -25,27 +25,6 @@ local Insert = table.insert
 local UnpackValues = table.unpack or unpack
 local Camera = workspace.CurrentCamera
 
-if getgenv().Library then
-    local old = getgenv().Library
-    if typeof(old.SignalHandles) == "table" then
-        for _, conn in ipairs(old.SignalHandles) do
-            pcall(function() conn:Disconnect() end)
-        end
-    end
-    if old._ScreenGui and old._ScreenGui.Parent then
-        pcall(function() old._ScreenGui:Destroy() end)
-    end
-    if old._OverlayGui and old._OverlayGui.Parent then
-        pcall(function() old._OverlayGui:Destroy() end)
-    end
-    getgenv().Library = nil
-end
-
-if getgenv().Library and getgenv().Library.Dispose then
-    pcall(function() getgenv().Library:Dispose() end)
-    getgenv().Library = nil
-end
-
 local Library = {
     Directory = "Optimum",
     Folders = {
@@ -364,6 +343,27 @@ function Library:Notify(title, description, duration)
     self:Connection(CloseButton.MouseButton1Click, CloseNow)
     task.delay(Life, CloseNow)
     return Entry
+end
+
+if getgenv().Library then
+    local old = getgenv().Library
+    if typeof(old.SignalHandles) == "table" then
+        for _, conn in ipairs(old.SignalHandles) do
+            pcall(function() conn:Disconnect() end)
+        end
+    end
+    if old._ScreenGui and old._ScreenGui.Parent then
+        pcall(function() old._ScreenGui:Destroy() end)
+    end
+    if old._OverlayGui and old._OverlayGui.Parent then
+        pcall(function() old._OverlayGui:Destroy() end)
+    end
+    getgenv().Library = nil
+end
+
+if getgenv().Library and getgenv().Library.Dispose then
+    pcall(function() getgenv().Library:Dispose() end)
+    getgenv().Library = nil
 end
 
 function Library:GetConfig()
@@ -4204,79 +4204,56 @@ function Library:Panel(options)
         end
     end)
 
-    -- Create a full-panel fade overlay, place this right after main is created
-    local PanelFadeOverlay = self:CreateInstance("Frame", {
-        Parent = main,
-        Name = "panel_fade_overlay",
-        BackgroundColor3 = Rgb(0, 0, 0),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Position = Dim2(0, -10, 0, -10),
-        Size = Dim2(1, 20, 1, 20),
-        Visible = false,
-        Active = false,
-        ZIndex = 999,
+    local ToggleButton = self:CreateInstance("TextButton", {
+    Parent = screen,
+    Name = "toggle_button",
+    AnchorPoint = Vector2.new(0, 1),
+    Position = Dim2(0, 20, 1, -90),
+    Size = Dim2(0, 70, 0, 70),
+    BackgroundColor3 = Palette.Swatches.control,
+    BorderSizePixel = 0,
+    Text = "",
+    AutoButtonColor = false,
+    ZIndex = 170,
     })
     self:CreateInstance("UICorner", {
-        Parent = PanelFadeOverlay,
-        CornerRadius = Dim(0, 16),
+        Parent = ToggleButton,
+        CornerRadius = Dim(0, 10),
+    })
+    self:CreateInstance("UIStroke", {
+        Parent = ToggleButton,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Color = Rgb(37, 37, 37),
+        Thickness = 1.5,
     })
 
-    -- Then replace the toggle connection with this
+    -- Add the logo icon inside it
+    local ToggleIcon = self:CreateInstance("ImageLabel", {
+        Parent = ToggleButton,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = Dim2(0.5, 0, 0.5, 0),
+        Size = Dim2(0, 42, 0, 42),
+        Image = options.Logo or options.logo or "rbxassetid://133218922939038",
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 171,
+    })
+
+    -- Make it draggable independently of the main panel
+    self:MakeDraggable(ToggleButton)
+
+    -- Wire the click to show/hide the main panel
     local PanelVisible = true
-    local PanelAnimating = false
-
-    local function SetPanelVisible(bool)
-        if PanelAnimating then return end
-        PanelAnimating = true
-        PanelVisible = bool
-
-        if bool then
-            -- show: make visible first, overlay starts black, fade it out
-            main.Visible = true
-            PanelFadeOverlay.BackgroundTransparency = 0
-            PanelFadeOverlay.Visible = true
-            self:Tween(PanelFadeOverlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, 0.3)
-            task.delay(0.3, function()
-                PanelFadeOverlay.Visible = false
-                PanelAnimating = false
-            end)
-        else
-            -- hide: overlay fades to black, then hide main
+    self:Connection(ToggleButton.MouseButton1Down, function()
+        PanelVisible = not PanelVisible
+        main.Visible = PanelVisible
+        -- close any open popups when hiding
+        if not PanelVisible then
             if CloseFolderPopup then CloseFolderPopup() end
             if CloseSettingsPopup then CloseSettingsPopup() end
             if self._DropdownClose then self._DropdownClose() end
             self:CloseElement(nil)
-            PanelFadeOverlay.BackgroundTransparency = 1
-            PanelFadeOverlay.Visible = true
-            self:Tween(PanelFadeOverlay, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad, 0.3)
-            task.delay(0.3, function()
-                if not PanelVisible then
-                    main.Visible = false
-                end
-                PanelFadeOverlay.Visible = false
-                PanelAnimating = false
-            end)
-        end
-    end
-
-    -- Wire watermark as the toggle
-    self:Connection(WatermarkCard.InputBegan, function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and
-        input.UserInputType ~= Enum.UserInputType.Touch then
-            return
-        end
-        -- ignore if the drag just moved the watermark
-        if self:Hovering(WatermarkCard) then
-            SetPanelVisible(not PanelVisible)
-        end
-    end)
-
-    -- Keep the keybind working too
-    self:Connection(UserInputService.InputBegan, function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.KeyCode == Enum.KeyCode.RightControl then
-            SetPanelVisible(not PanelVisible)
         end
     end)
 
