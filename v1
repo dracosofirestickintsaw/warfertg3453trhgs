@@ -7611,8 +7611,8 @@ function Library:Panel(options)
             WatermarkMoveConn:Disconnect()
             WatermarkMoveConn = nil
         end
-        if WatermarkPressed and not WatermarkDragMoved and self:Hovering(WatermarkCard) then
-            SetPanelVisible(not PanelVisible)
+        if WatermarkPressed and not WatermarkDragMoved and selfHoveringWatermarkCard then
+            ToggleMainUi()
         end
         WatermarkPressed = false
         WatermarkDragMoved = false
@@ -7631,6 +7631,8 @@ function Library:Panel(options)
             Window:SetOpen(not Window.IsOpen)
         elseif WindowSetOpen then
             WindowSetOpen(not Window.IsOpen)
+        elseif SetPanelVisible then
+            SetPanelVisible(not PanelVisible)
         end
     end
 
