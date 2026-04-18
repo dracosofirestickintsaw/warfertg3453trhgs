@@ -34,32 +34,30 @@ if Icons then
     pcall(function() Icons.SetIconsType("lucide") end)
 end
 
-local function ResolveLucideIcon(iconName)
-    if not Icons then return nil end
-    if type(iconName) ~= "string" then return nil end
-    if not iconName:match("^lucide:") then return nil end
-
+local function ResolveLucideIcon(name)
+    if not Icons or type(name) ~= "string" or not name:match("^lucide:") then 
+        print("early return - Icons:", Icons ~= nil, "name:", name)
+        return nil 
+    end
     local ok, obj = pcall(function()
-        return Icons.Image({
-            Icon   = iconName,
-            Size   = UDim2.fromOffset(13, 13),
-            Colors = { Color3.fromRGB(152, 152, 172) },
+        return Icons.Image({ 
+            Icon = name, 
+            Size = UDim2.fromOffset(13,13), 
+            Colors = {Color3.fromRGB(152,152,172)} 
         })
     end)
-
+    print("pcall ok:", ok, "obj:", obj, "IconFrame:", obj and obj.IconFrame)
     if ok and obj and obj.IconFrame then
-        local img = obj.IconFrame:FindFirstChildWhichIsA("ImageLabel", true)
-        if img and img.Image and img.Image ~= "" then
-            return img.Image
+        -- Search deeper for the ImageLabel
+        for _, v in ipairs(obj.IconFrame:GetDescendants()) do
+            print("descendant:", v.ClassName, v.Name, v:IsA("ImageLabel") and v.Image or "")
         end
+        local img = obj.IconFrame:FindFirstChildWhichIsA("ImageLabel", true)
+        print("img found:", img, img and img.Image)
+        if img then return img.Image end
     end
     return nil
 end
-print("Icons loaded:", Icons ~= nil)
-task.delay(2, function()
-    local result = ResolveLucideIcon("lucide:house")
-    print("lucide:house resolved to:", tostring(result))
-end)
 
 local Library = {
     Directory = "Optimum",
