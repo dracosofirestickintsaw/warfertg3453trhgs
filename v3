@@ -7585,29 +7585,38 @@ function Library:Panel(options)
     end
 
     local WatermarkDragMoved = false
+    local WatermarkPressed = false
+    local WatermarkMoveConn = nil
 
     self:Connection(WatermarkCard.InputBegan, function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and
         input.UserInputType ~= Enum.UserInputType.Touch then return end
         WatermarkDragMoved = false
-    end)
+        WatermarkPressed = true
 
-    self:Connection(UserInputService.InputChanged, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or
-        input.UserInputType == Enum.UserInputType.Touch then
-            -- only flag as dragged if button is held
-            if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+        -- Only track movement while this press is active
+        if WatermarkMoveConn then
+            WatermarkMoveConn:Disconnect()
+        end
+        WatermarkMoveConn = UserInputService.InputChanged:Connect(function(inp)
+            if inp.UserInputType == Enum.UserInputType.MouseMovement or
+            inp.UserInputType == Enum.UserInputType.Touch then
                 WatermarkDragMoved = true
             end
-        end
+        end)
     end)
 
     self:Connection(WatermarkCard.InputEnded, function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and
         input.UserInputType ~= Enum.UserInputType.Touch then return end
-        if not WatermarkDragMoved and self:Hovering(WatermarkCard) then
+        if WatermarkMoveConn then
+            WatermarkMoveConn:Disconnect()
+            WatermarkMoveConn = nil
+        end
+        if WatermarkPressed and not WatermarkDragMoved and self:Hovering(WatermarkCard) then
             SetPanelVisible(not PanelVisible)
         end
+        WatermarkPressed = false
         WatermarkDragMoved = false
     end)
 
