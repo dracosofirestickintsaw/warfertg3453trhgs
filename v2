@@ -25,6 +25,37 @@ local Insert = table.insert
 local UnpackValues = table.unpack or unpack
 local Camera = workspace.CurrentCamera
 
+local Icons = nil
+pcall(function()
+    local src = game:HttpGet("https://raw.githubusercontent.com/Footagesus/Icons/main/Main-v2.lua")
+    Icons = loadstring(src)()
+end)
+if Icons then
+    pcall(function() Icons.SetIconsType("lucide") end)
+end
+
+local function ResolveLucideIcon(iconName)
+    if not Icons then return nil end
+    if type(iconName) ~= "string" then return nil end
+    if not iconName:match("^lucide:") then return nil end
+
+    local ok, obj = pcall(function()
+        return Icons.Image({
+            Icon   = iconName,
+            Size   = UDim2.fromOffset(13, 13),
+            Colors = { Color3.fromRGB(152, 152, 172) },
+        })
+    end)
+
+    if ok and obj and obj.IconFrame then
+        local img = obj.IconFrame:FindFirstChildWhichIsA("ImageLabel", true)
+        if img and img.Image and img.Image ~= "" then
+            return img.Image
+        end
+    end
+    return nil
+end
+
 local Library = {
     Directory = "Optimum",
     Folders = {
@@ -4301,6 +4332,14 @@ function Library:Panel(options)
             return "rbxassetid://" .. tostring(icon)
         end
         if typeof(icon) == "string" then
+            -- Lucide icon support
+            if icon:match("^lucide:") then
+                local resolved = ResolveLucideIcon(icon)
+                if resolved then
+                    return resolved
+                end
+                return DefaultTabIcon
+            end
             if icon:find("^rbxassetid://") or icon:find("^rbxthumb://") or icon:find("^http") then
                 return icon
             end
