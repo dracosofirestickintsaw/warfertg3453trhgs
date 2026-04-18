@@ -4204,6 +4204,82 @@ function Library:Panel(options)
         end
     end)
 
+    -- Create a full-panel fade overlay, place this right after main is created
+    local PanelFadeOverlay = self:CreateInstance("Frame", {
+        Parent = main,
+        Name = "panel_fade_overlay",
+        BackgroundColor3 = Rgb(0, 0, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Position = Dim2(0, -10, 0, -10),
+        Size = Dim2(1, 20, 1, 20),
+        Visible = false,
+        Active = false,
+        ZIndex = 999,
+    })
+    self:CreateInstance("UICorner", {
+        Parent = PanelFadeOverlay,
+        CornerRadius = Dim(0, 16),
+    })
+
+    -- Then replace the toggle connection with this
+    local PanelVisible = true
+    local PanelAnimating = false
+
+    local function SetPanelVisible(bool)
+        if PanelAnimating then return end
+        PanelAnimating = true
+        PanelVisible = bool
+
+        if bool then
+            -- show: make visible first, overlay starts black, fade it out
+            main.Visible = true
+            PanelFadeOverlay.BackgroundTransparency = 0
+            PanelFadeOverlay.Visible = true
+            self:Tween(PanelFadeOverlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, 0.3)
+            task.delay(0.3, function()
+                PanelFadeOverlay.Visible = false
+                PanelAnimating = false
+            end)
+        else
+            -- hide: overlay fades to black, then hide main
+            if CloseFolderPopup then CloseFolderPopup() end
+            if CloseSettingsPopup then CloseSettingsPopup() end
+            if self._DropdownClose then self._DropdownClose() end
+            self:CloseElement(nil)
+            PanelFadeOverlay.BackgroundTransparency = 1
+            PanelFadeOverlay.Visible = true
+            self:Tween(PanelFadeOverlay, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad, 0.3)
+            task.delay(0.3, function()
+                if not PanelVisible then
+                    main.Visible = false
+                end
+                PanelFadeOverlay.Visible = false
+                PanelAnimating = false
+            end)
+        end
+    end
+
+    -- Wire watermark as the toggle
+    self:Connection(WatermarkCard.InputBegan, function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and
+        input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+        -- ignore if the drag just moved the watermark
+        if self:Hovering(WatermarkCard) then
+            SetPanelVisible(not PanelVisible)
+        end
+    end)
+
+    -- Keep the keybind working too
+    self:Connection(UserInputService.InputBegan, function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.KeyCode == Enum.KeyCode.RightControl then
+            SetPanelVisible(not PanelVisible)
+        end
+    end)
+
     local SidebarTabStack = self:CreateInstance("Frame", {
         Parent = SidebarInner,
         Name = "\0",
@@ -7527,114 +7603,6 @@ function Library:Panel(options)
         end
         CloseFolderPopup()
     end)
-
-        -- Create a full-panel fade overlay, place this right after main is created
-    local PanelFadeOverlay = self:CreateInstance("Frame", {
-        Parent = main,
-        Name = "panel_fade_overlay",
-        BackgroundColor3 = Rgb(0, 0, 0),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Position = Dim2(0, -10, 0, -10),
-        Size = Dim2(1, 20, 1, 20),
-        Visible = false,
-        Active = false,
-        ZIndex = 999,
-    })
-    self:CreateInstance("UICorner", {
-        Parent = PanelFadeOverlay,
-        CornerRadius = Dim(0, 16),
-    })
-
-    -- Then replace the toggle connection with this
-    local PanelVisible = true
-    local PanelAnimating = false
-
-    local function SetPanelVisible(bool)
-        if PanelAnimating then return end
-        PanelAnimating = true
-        PanelVisible = bool
-
-        if bool then
-            -- show: make visible first, overlay starts black, fade it out
-            main.Visible = true
-            PanelFadeOverlay.BackgroundTransparency = 0
-            PanelFadeOverlay.Visible = true
-            self:Tween(PanelFadeOverlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, 0.3)
-            task.delay(0.3, function()
-                PanelFadeOverlay.Visible = false
-                PanelAnimating = false
-            end)
-        else
-            -- hide: overlay fades to black, then hide main
-            if CloseFolderPopup then CloseFolderPopup() end
-            if CloseSettingsPopup then CloseSettingsPopup() end
-            if self._DropdownClose then self._DropdownClose() end
-            self:CloseElement(nil)
-            PanelFadeOverlay.BackgroundTransparency = 1
-            PanelFadeOverlay.Visible = true
-            self:Tween(PanelFadeOverlay, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad, 0.3)
-            task.delay(0.3, function()
-                if not PanelVisible then
-                    main.Visible = false
-                end
-                PanelFadeOverlay.Visible = false
-                PanelAnimating = false
-            end)
-        end
-    end
-
-    local WatermarkDragMoved = false
-    local WatermarkPressed = false
-    local WatermarkMoveConn = nil
-
-    self:Connection(WatermarkCard.InputBegan, function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and
-        input.UserInputType ~= Enum.UserInputType.Touch then return end
-        WatermarkDragMoved = false
-        WatermarkPressed = true
-        if WatermarkMoveConn then
-            WatermarkMoveConn:Disconnect()
-        end
-        WatermarkMoveConn = UserInputService.InputChanged:Connect(function(inp)
-            if inp.UserInputType == Enum.UserInputType.MouseMovement or
-            inp.UserInputType == Enum.UserInputType.Touch then
-                WatermarkDragMoved = true
-            end
-        end)
-    end)
-
-    self:Connection(UserInputService.InputEnded, function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and
-        input.UserInputType ~= Enum.UserInputType.Touch then return end
-        if WatermarkMoveConn then
-            WatermarkMoveConn:Disconnect()
-            WatermarkMoveConn = nil
-        end
-        if WatermarkPressed and not WatermarkDragMoved and selfHoveringWatermarkCard then
-            ToggleMainUi()
-        end
-        WatermarkPressed = false
-        WatermarkDragMoved = false
-    end)
-
-    -- Keep the keybind working too
-    self:Connection(UserInputService.InputBegan, function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.KeyCode == Enum.KeyCode.RightControl then
-            SetPanelVisible(not PanelVisible)
-        end
-    end)
-
-    local function ToggleMainUi()
-        if Window and Window.SetOpen then
-            Window:SetOpen(not Window.IsOpen)
-        elseif WindowSetOpen then
-            WindowSetOpen(not Window.IsOpen)
-        elseif SetPanelVisible then
-            SetPanelVisible(not PanelVisible)
-        end
-    end
 
     local function OpenFolderPopup()
         CloseSettingsPopup()
