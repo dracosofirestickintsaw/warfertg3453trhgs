@@ -7222,7 +7222,7 @@ function Library:Panel(options)
     end
 
     local function RefreshWatermarkText()
-        local TitleText = WatermarkPartsEnabled.CheatName and "Lunaris" or ""
+        local TitleText = WatermarkPartsEnabled.CheatName and "Lunaris Hub" or ""
         local Parts = {}
         if WatermarkPartsEnabled.Lobby then
             Insert(Parts, WatermarkGameName)
@@ -7238,7 +7238,7 @@ function Library:Panel(options)
             Insert(Parts, TimeText)
         end
         if TitleText == "" and #Parts <= 0 then
-            TitleText = "Lunaris"
+            TitleText = "Lunaris Hub"
         end
         WatermarkTitle.Text = TitleText
         WatermarkInfo.Text = table.concat(Parts, "    ")
