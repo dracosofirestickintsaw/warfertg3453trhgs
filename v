@@ -4227,7 +4227,6 @@ function Library:Panel(options)
         Thickness = 1.5,
     })
 
-    -- Add the logo icon inside it
     local ToggleIcon = self:CreateInstance("ImageLabel", {
         Parent = ToggleButton,
         BackgroundTransparency = 1,
@@ -4235,20 +4234,17 @@ function Library:Panel(options)
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = Dim2(0.5, 0, 0.5, 0),
         Size = Dim2(0, 42, 0, 42),
-        Image = options.Logo or options.logo or "rbxassetid://133218922939038",
+        Image = options.Logo or options.logo or "rbxassetid://89349032846240",
         ScaleType = Enum.ScaleType.Fit,
         ZIndex = 171,
     })
 
-    -- Make it draggable independently of the main panel
     self:MakeDraggable(ToggleButton)
 
-    -- Wire the click to show/hide the main panel
     local PanelVisible = true
     self:Connection(ToggleButton.MouseButton1Down, function()
         PanelVisible = not PanelVisible
         main.Visible = PanelVisible
-        -- close any open popups when hiding
         if not PanelVisible then
             if CloseFolderPopup then CloseFolderPopup() end
             if CloseSettingsPopup then CloseSettingsPopup() end
@@ -4284,7 +4280,6 @@ function Library:Panel(options)
                 local hh = SidebarHeader.AbsoluteSize.Y
                 local sh = SidebarTabStack.AbsoluteSize.Y
                 if hh > 0 then
-                    -- SidebarInner: top pad + header + list gap + tab stack + bottom pad; main: + UIPadding (10+10)
                     local MinMain = 80 + hh + sh
                     local max_h = math.max(0, Camera.ViewportSize.Y - 40)
                     local new_h = math.min(math.max(DefaultPanelHeight, MinMain, 590), max_h)
@@ -7161,7 +7156,7 @@ function Library:Panel(options)
         Size = Dim2(0, 0, 1, 0),
         AutomaticSize = Enum.AutomaticSize.X,
         FontFace = SearchFontFace,
-        Text = "Optimum",
+        Text = "Lunaris",
         TextColor3 = Rgb(255, 255, 255),
         TextSize = SearchTextSize + 2,
         TextXAlignment = Enum.TextXAlignment.Left,
