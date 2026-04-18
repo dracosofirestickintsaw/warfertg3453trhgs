@@ -55,6 +55,11 @@ local function ResolveLucideIcon(iconName)
     end
     return nil
 end
+print("Icons loaded:", Icons ~= nil)
+task.delay(2, function()
+    local result = ResolveLucideIcon("lucide:house")
+    print("lucide:house resolved to:", tostring(result))
+end)
 
 local Library = {
     Directory = "Optimum",
