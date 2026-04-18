@@ -7626,6 +7626,13 @@ function Library:Panel(options)
         end
     end)
 
+    local function ToggleMainUi()
+        if Window and Window.SetOpen then
+            Window:SetOpen(not Window.IsOpen)
+        elseif WindowSetOpen then
+            WindowSetOpen(not Window.IsOpen)
+    end
+
     local function OpenFolderPopup()
         CloseSettingsPopup()
         CloseWatermarkPopup()
