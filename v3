@@ -7593,8 +7593,6 @@ function Library:Panel(options)
         input.UserInputType ~= Enum.UserInputType.Touch then return end
         WatermarkDragMoved = false
         WatermarkPressed = true
-
-        -- Only track movement while this press is active
         if WatermarkMoveConn then
             WatermarkMoveConn:Disconnect()
         end
@@ -7606,7 +7604,7 @@ function Library:Panel(options)
         end)
     end)
 
-    self:Connection(WatermarkCard.InputEnded, function(input)
+    self:Connection(UserInputService.InputEnded, function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and
         input.UserInputType ~= Enum.UserInputType.Touch then return end
         if WatermarkMoveConn then
