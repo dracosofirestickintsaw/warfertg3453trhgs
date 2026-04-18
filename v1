@@ -25,39 +25,6 @@ local Insert = table.insert
 local UnpackValues = table.unpack or unpack
 local Camera = workspace.CurrentCamera
 
-local Icons = nil
-pcall(function()
-    Icons = loadstring(game:HttpGet(
-        "https://raw.githubusercontent.com/Footagesus/Icons/main/Main-v2.lua"
-    ))()
-end)
-if Icons then pcall(function() Icons.SetIconsType("lucide") end) end
-
-local function IsLucideIcon(name)
-    return type(name) == "string" and name:match("^lucide:")
-end
-
-local function ApplyLucideToContainer(container, name, size, color)
-    if not Icons then return nil end
-    local ok, obj = pcall(function()
-        return Icons.Image({
-            Icon   = name,
-            Size   = size or UDim2.fromOffset(13, 13),
-            Colors = { color or Color3.fromRGB(152, 152, 172) },
-        })
-    end)
-    if ok and obj and obj.IconFrame then
-        local frame = obj.IconFrame
-        frame.BackgroundTransparency = 1
-        frame.Size      = size or UDim2.fromOffset(13, 13)
-        frame.Position  = UDim2.fromScale(0.5, 0.5)
-        frame.AnchorPoint = Vector2.new(0.5, 0.5)
-        frame.Parent    = container
-        return frame
-    end
-    return nil
-end
-
 local Library = {
     Directory = "Optimum",
     Folders = {
@@ -563,7 +530,7 @@ do
 
     local InterMedium = RegisterFont("Medium", 500, "Normal", {
         Id = "Medium.ttf",
-        Font = game:HttpGet("https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/InterSemibold.ttf"),
+        Font = game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/Inter_28pt-Medium.ttf"),
     })
 
     local ActayWideBold = RegisterFont("ActayWideBold", 700, "Normal", {
@@ -4299,13 +4266,7 @@ function Library:Panel(options)
             end
             local IconLabel = TabIconLabels[i]
             if IconLabel then
-                local color = on and Rgb(213, 213, 214) or Rgb(152, 152, 172)
-                if IconLabel:IsA("ImageLabel") then
-                    IconLabel.ImageColor3 = color
-                else
-                    local img = IconLabel:FindFirstChildWhichIsA("ImageLabel", true)
-                    if img then img.ImageColor3 = color end
-                end
+                IconLabel.ImageColor3 = on and Rgb(213, 213, 214) or Rgb(152, 152, 172)
             end
             local TabContentInfo = TabContentPanels[i]
             if TabContentInfo and TabContentInfo.Panel then
@@ -4340,14 +4301,6 @@ function Library:Panel(options)
             return "rbxassetid://" .. tostring(icon)
         end
         if typeof(icon) == "string" then
-            -- Lucide icon support
-            if icon:match("^lucide:") then
-                local resolved = ResolveLucideIcon(icon)
-                if resolved then
-                    return resolved
-                end
-                return DefaultTabIcon
-            end
             if icon:find("^rbxassetid://") or icon:find("^rbxthumb://") or icon:find("^http") then
                 return icon
             end
@@ -4469,35 +4422,19 @@ function Library:Panel(options)
             SortOrder = Enum.SortOrder.LayoutOrder,
         })
 
-        local IconLabel
-        if IsLucideIcon(icon) then
-            local IconContainer = self:CreateInstance("Frame", {
-                Parent = TabBtn,
-                Name = "tab_icon",
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                Size = Dim2(0, 13, 0, 13),
-                LayoutOrder = 1,
-                ZIndex = 2,
-            })
-            ApplyLucideToContainer(IconContainer, icon, Dim2(0, 13, 0, 13), Rgb(152, 152, 172))
-            IconLabel = IconContainer
-        else
-            local IconAsset = ResolveTabIcon(icon)
-            IconLabel = self:CreateInstance("ImageLabel", {
-                Parent = TabBtn,
-                Name = "tab_icon",
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                Size = Dim2(0, 13, 0, 13),
-                Image = IconAsset,
-                ImageColor3 = Rgb(152, 152, 172),
-                ImageTransparency = 0,
-                ScaleType = Enum.ScaleType.Fit,
-                LayoutOrder = 1,
-                ZIndex = 2,
-            })
-        end
+        local IconLabel = self:CreateInstance("ImageLabel", {
+            Parent = TabBtn,
+            Name = "tab_icon",
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Size = Dim2(0, 13, 0, 13),
+            Image = IconAsset,
+            ImageColor3 = Rgb(152, 152, 172),
+            ImageTransparency = 0,
+            ScaleType = Enum.ScaleType.Fit,
+            LayoutOrder = 1,
+            ZIndex = 2,
+        })
 
         local NameLabel = self:CreateInstance("TextLabel", {
             Parent = TabBtn,
