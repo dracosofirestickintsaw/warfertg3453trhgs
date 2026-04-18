@@ -25,27 +25,6 @@ local Insert = table.insert
 local UnpackValues = table.unpack or unpack
 local Camera = workspace.CurrentCamera
 
-if getgenv().Library then
-    local old = getgenv().Library
-    if typeof(old.SignalHandles) == "table" then
-        for _, conn in ipairs(old.SignalHandles) do
-            pcall(function() conn:Disconnect() end)
-        end
-    end
-    if old._ScreenGui and old._ScreenGui.Parent then
-        pcall(function() old._ScreenGui:Destroy() end)
-    end
-    if old._OverlayGui and old._OverlayGui.Parent then
-        pcall(function() old._OverlayGui:Destroy() end)
-    end
-    getgenv().Library = nil
-end
-
-if getgenv().Library and getgenv().Library.Dispose then
-    pcall(function() getgenv().Library:Dispose() end)
-    getgenv().Library = nil
-end
-
 local Library = {
     Directory = "Optimum",
     Folders = {
@@ -364,6 +343,27 @@ function Library:Notify(title, description, duration)
     self:Connection(CloseButton.MouseButton1Click, CloseNow)
     task.delay(Life, CloseNow)
     return Entry
+end
+
+if getgenv().Library then
+    local old = getgenv().Library
+    if typeof(old.SignalHandles) == "table" then
+        for _, conn in ipairs(old.SignalHandles) do
+            pcall(function() conn:Disconnect() end)
+        end
+    end
+    if old._ScreenGui and old._ScreenGui.Parent then
+        pcall(function() old._ScreenGui:Destroy() end)
+    end
+    if old._OverlayGui and old._OverlayGui.Parent then
+        pcall(function() old._OverlayGui:Destroy() end)
+    end
+    getgenv().Library = nil
+end
+
+if getgenv().Library and getgenv().Library.Dispose then
+    pcall(function() getgenv().Library:Dispose() end)
+    getgenv().Library = nil
 end
 
 function Library:GetConfig()
