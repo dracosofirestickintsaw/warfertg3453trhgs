@@ -4234,7 +4234,7 @@ function Library:Panel(options)
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = Dim2(0.5, 0, 0.5, 0),
         Size = Dim2(0, 42, 0, 42),
-        Image = options.Logo or options.logo or "rbxassetid://89349032846240",
+        Image = options.Logo or options.logo or "rbxassetid://108616878420624",
         ScaleType = Enum.ScaleType.Fit,
         ZIndex = 171,
     })
@@ -7222,7 +7222,7 @@ function Library:Panel(options)
     end
 
     local function RefreshWatermarkText()
-        local TitleText = WatermarkPartsEnabled.CheatName and "Optimum" or ""
+        local TitleText = WatermarkPartsEnabled.CheatName and "Lunaris" or ""
         local Parts = {}
         if WatermarkPartsEnabled.Lobby then
             Insert(Parts, WatermarkGameName)
@@ -7238,7 +7238,7 @@ function Library:Panel(options)
             Insert(Parts, TimeText)
         end
         if TitleText == "" and #Parts <= 0 then
-            TitleText = "Optimum"
+            TitleText = "Lunaris"
         end
         WatermarkTitle.Text = TitleText
         WatermarkInfo.Text = table.concat(Parts, "    ")
