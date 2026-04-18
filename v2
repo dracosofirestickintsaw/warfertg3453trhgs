@@ -7584,16 +7584,31 @@ function Library:Panel(options)
         end
     end
 
-    -- Wire watermark as the toggle
+    local WatermarkDragMoved = false
+
     self:Connection(WatermarkCard.InputBegan, function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and
-        input.UserInputType ~= Enum.UserInputType.Touch then
-            return
+        input.UserInputType ~= Enum.UserInputType.Touch then return end
+        WatermarkDragMoved = false
+    end)
+
+    self:Connection(UserInputService.InputChanged, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or
+        input.UserInputType == Enum.UserInputType.Touch then
+            -- only flag as dragged if button is held
+            if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                WatermarkDragMoved = true
+            end
         end
-        -- ignore if the drag just moved the watermark
-        if self:Hovering(WatermarkCard) then
+    end)
+
+    self:Connection(WatermarkCard.InputEnded, function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and
+        input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if not WatermarkDragMoved and self:Hovering(WatermarkCard) then
             SetPanelVisible(not PanelVisible)
         end
+        WatermarkDragMoved = false
     end)
 
     -- Keep the keybind working too
