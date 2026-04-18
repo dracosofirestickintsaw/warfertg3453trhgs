@@ -7631,6 +7631,7 @@ function Library:Panel(options)
             Window:SetOpen(not Window.IsOpen)
         elseif WindowSetOpen then
             WindowSetOpen(not Window.IsOpen)
+        end
     end
 
     local function OpenFolderPopup()
