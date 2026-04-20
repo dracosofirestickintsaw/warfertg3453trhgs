@@ -4242,107 +4242,12 @@ function Library:Panel(options)
     self:MakeDraggable(ToggleButton)
 
     local PanelVisible = true
-    local FadeDuration = 0.28   -- ← you can change this (0.22 = faster, 0.35 = smoother)
-
     self:Connection(ToggleButton.MouseButton1Down, function()
         PanelVisible = not PanelVisible
-
-        if PanelVisible then
-            -- ====================== OPEN ======================
-            main.Visible = true
-
-            -- Reset everything to fully visible instantly (prevents color loss on re-open)
-            main.BackgroundTransparency = 1
-            local stroke = main:FindFirstChildWhichIsA("UIStroke")
-            if stroke then stroke.Transparency = 1 end
-
-            for _, obj in ipairs(main:GetDescendants()) do
-                if obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
-                    obj.BackgroundTransparency = 1
-                elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                    obj.TextTransparency = 1
-                elseif obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-                    obj.ImageTransparency = 1
-                end
-            end
-
-            -- Now fade everything in smoothly
-            TweenService:Create(main, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = 0
-            }):Play()
-
-            if stroke then
-                TweenService:Create(stroke, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    Transparency = 0
-                }):Play()
-            end
-
-            for _, obj in ipairs(main:GetDescendants()) do
-                if obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
-                    if obj.BackgroundTransparency < 1 then
-                        TweenService:Create(obj, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                            BackgroundTransparency = 0
-                        }):Play()
-                    end
-                elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                    TweenService:Create(obj, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                        TextTransparency = 0
-                    }):Play()
-                elseif obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-                    TweenService:Create(obj, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                        ImageTransparency = 0
-                    }):Play()
-                end
-            end
-
-        else
-            -- ====================== CLOSE ======================
-            local stroke = main:FindFirstChildWhichIsA("UIStroke")
-
-            -- Fade everything out
-            TweenService:Create(main, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-                BackgroundTransparency = 1
-            }):Play()
-
-            if stroke then
-                TweenService:Create(stroke, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-                    Transparency = 1
-                }):Play()
-            end
-
-            for _, obj in ipairs(main:GetDescendants()) do
-                if obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
-                    if obj.BackgroundTransparency < 1 then
-                        TweenService:Create(obj, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-                            BackgroundTransparency = 1
-                        }):Play()
-                    end
-                elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                    TweenService:Create(obj, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-                        TextTransparency = 1
-                    }):Play()
-                elseif obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-                    TweenService:Create(obj, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-                        ImageTransparency = 1
-                    }):Play()
-                end
-            end
-
-            -- Hide after fade finishes
-            task.delay(FadeDuration + 0.05, function()
-                if not PanelVisible then
-                    main.Visible = false
-                    -- Reset everything for next open
-                    main.BackgroundTransparency = 0
-                    if stroke then stroke.Transparency = 0 end
-                end
-            end)
-        end
-
-        -- Close popups when hiding
+        main.Visible = PanelVisible
         if not PanelVisible then
-            if self._CloseFolderPopup then self._CloseFolderPopup() end
-            if self._CloseSettingsPopup then self._CloseSettingsPopup() end
+            if CloseFolderPopup then CloseFolderPopup() end
+            if CloseSettingsPopup then CloseSettingsPopup() end
             if self._DropdownClose then self._DropdownClose() end
             self:CloseElement(nil)
         end
