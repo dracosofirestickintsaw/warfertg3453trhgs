@@ -4460,7 +4460,7 @@ function Library:Panel(options)
             Parent = SidebarTabStack,
             Name = "\0",
             AutoButtonColor = false,
-            Size = Dim2(0, SidebarWidth - 22, 0, 60),
+            Size = Dim2(0, SidebarWidth - 22, 0, 50),
             BackgroundColor3 = Palette.Swatches.tab_active,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
@@ -4478,8 +4478,8 @@ function Library:Panel(options)
             Parent = TabBtn,
             PaddingLeft = Dim(0, 10),
             PaddingRight = Dim(0, 10),
-            PaddingTop = Dim(0, 13),
-            PaddingBottom = Dim(0, 13),
+            PaddingTop = Dim(0, 10),
+            PaddingBottom = Dim(0, 10),
         })
 
         self:CreateInstance("UIListLayout", {
@@ -4804,7 +4804,7 @@ function Library:Panel(options)
         BackgroundColor3 = Palette.Swatches.surface,
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(1, 0),
-        Position = Dim2(1, 0, 0, 40),
+        Position = Dim2(1, 0, 0, 48),
         Size = Dim2(0, 260, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
         Visible = false,
@@ -4853,8 +4853,8 @@ function Library:Panel(options)
         Parent = FolderInner,
         PaddingLeft = Dim(0, 8),
         PaddingRight = Dim(0, 8),
-        PaddingTop = Dim(0, 10),
-        PaddingBottom = Dim(0, 10),
+        PaddingTop = Dim(0, 8),
+        PaddingBottom = Dim(0, 1),
     })
 
     self:CreateInstance("UIListLayout", {
