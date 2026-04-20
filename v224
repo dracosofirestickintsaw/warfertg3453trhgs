@@ -4242,20 +4242,21 @@ function Library:Panel(options)
     self:MakeDraggable(ToggleButton)
 
     local PanelVisible = true
-    local FadeDuration = 0.28   -- ← feel free to change (0.22 = snappy, 0.35 = smooth)
+    local FadeDuration = 0.28   -- ← change this if you want it faster/slower
 
-    local function FadeUI(visible)
-        if visible then
-            -- OPEN
+    self:Connection(ToggleButton.MouseButton1Down, function()
+        PanelVisible = not PanelVisible
+
+        if PanelVisible then
+            -- === OPEN ANIMATION ===
             main.Visible = true
             main.BackgroundTransparency = 1
 
-            -- Fade in everything
+            -- Fade in main background + stroke
             TweenService:Create(main, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundTransparency = 0
             }):Play()
 
-            -- Fade the outline stroke
             local stroke = main:FindFirstChildWhichIsA("UIStroke")
             if stroke then
                 stroke.Transparency = 1
@@ -4264,7 +4265,7 @@ function Library:Panel(options)
                 }):Play()
             end
 
-            -- Fade all children (text, buttons, sidebar, searchbar, sections, tabs, etc.)
+            -- Fade in ALL children (sidebar, searchbar, tabs, sections, text, icons, etc.)
             for _, obj in ipairs(main:GetDescendants()) do
                 if obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
                     if obj.BackgroundTransparency < 1 then
@@ -4286,10 +4287,10 @@ function Library:Panel(options)
             end
 
         else
-            -- CLOSE
+            -- === CLOSE ANIMATION ===
             local stroke = main:FindFirstChildWhichIsA("UIStroke")
 
-            -- Background + stroke fade out
+            -- Fade out background + stroke
             TweenService:Create(main, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                 BackgroundTransparency = 1
             }):Play()
@@ -4300,7 +4301,7 @@ function Library:Panel(options)
                 }):Play()
             end
 
-            -- All children fade out
+            -- Fade out everything inside
             for _, obj in ipairs(main:GetDescendants()) do
                 if obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
                     if obj.BackgroundTransparency < 1 then
@@ -4319,26 +4320,20 @@ function Library:Panel(options)
                 end
             end
 
-            -- Hide after fade finishes
-            task.delay(FadeDuration + 0.02, function()
+            -- Hide after fade completes
+            task.delay(FadeDuration + 0.05, function()
                 if not PanelVisible then
                     main.Visible = false
-                    -- Reset transparency for next open
                     main.BackgroundTransparency = 0
                     if stroke then stroke.Transparency = 0 end
                 end
             end)
         end
-    end
 
-    self:Connection(ToggleButton.MouseButton1Down, function()
-        PanelVisible = not PanelVisible
-        FadeUI(PanelVisible)
-
-        -- Close popups when hiding (same as before)
+        -- Close popups when hiding
         if not PanelVisible then
-            if CloseFolderPopup then CloseFolderPopup() end
-            if CloseSettingsPopup then CloseSettingsPopup() end
+            if self._CloseFolderPopup then self._CloseFolderPopup() end
+            if self._CloseSettingsPopup then self._CloseSettingsPopup() end
             if self._DropdownClose then self._DropdownClose() end
             self:CloseElement(nil)
         end
