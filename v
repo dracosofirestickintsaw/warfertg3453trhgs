@@ -7192,8 +7192,10 @@ function Library:Panel(options)
 
     self:MakeDraggable(WatermarkCard)
 
+    -- ==================== WATERMARK ====================
     local WatermarkGameName = "Unknown Game"
 
+    -- Get real game name from Roblox (fixes the "Ugc" issue)
     local success, productInfo = pcall(function()
         return MarketplaceService:GetProductInfo(game.PlaceId)
     end)
@@ -7203,6 +7205,7 @@ function Library:Panel(options)
     else
         WatermarkGameName = tostring(game.Name or "Unknown Game")
     end
+
     local WatermarkFps = 0
     local WatermarkPing = "--"
     local LastWatermarkUpdate = 0
@@ -7222,6 +7225,58 @@ function Library:Panel(options)
         end
         return "--"
     end
+
+    local function RefreshWatermarkText()
+        local TitleText = "Lunaris"   -- You can change this if you want
+
+        local Parts = {}
+        table.insert(Parts, WatermarkGameName)
+
+        if WatermarkPartsEnabled.FPS then
+            table.insert(Parts, math.floor(WatermarkFps + 0.5) .. " FPS")
+        end
+        if WatermarkPartsEnabled.PING then
+            table.insert(Parts, WatermarkPing .. " PING")
+        end
+        if WatermarkPartsEnabled.Time then
+            local TimeText = os.date("%I:%M %p"):gsub("^0", "")
+            table.insert(Parts, TimeText)
+        end
+
+        WatermarkTitle.Text = TitleText
+        WatermarkInfo.Text = table.concat(Parts, "  ")
+
+        -- Auto-resize the card
+        task.defer(function()
+            if not WatermarkCard or not WatermarkTitle or not WatermarkInfo then return end
+            local baseX = 12
+            local gap = (WatermarkTitle.Text ~= "" and WatermarkInfo.Text ~= "") and 18 or 0
+            local titleW = WatermarkTitle.TextBounds.X
+            local infoW = WatermarkInfo.TextBounds.X
+            WatermarkTitle.Position = UDim2.new(0, baseX, 0, 0)
+            WatermarkInfo.Position = UDim2.new(0, baseX + titleW + gap, 0, 0)
+            local totalWidth = math.max(210, baseX + titleW + gap + infoW + 12)
+            WatermarkCard.Size = UDim2.new(0, totalWidth, 0, 44)
+        end)
+    end
+
+    -- Live update FPS + Ping + Time
+    self:Connection(RunService.RenderStepped, function(dt)
+        if dt > 0 then
+            local instantFps = 1 / dt
+            WatermarkFps = (WatermarkFps * 0.85) + (instantFps * 0.15)
+        end
+
+        local now = tick()
+        if now - LastWatermarkUpdate >= 0.25 then
+            LastWatermarkUpdate = now
+            WatermarkPing = ReadPingText()
+            RefreshWatermarkText()
+        end
+    end)
+
+    -- Initial update
+    RefreshWatermarkText()
 
     local function RefreshWatermarkText()
         local TitleText = WatermarkPartsEnabled.CheatName and "Lunaris Hub" or ""
