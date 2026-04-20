@@ -4242,9 +4242,34 @@ function Library:Panel(options)
     self:MakeDraggable(ToggleButton)
 
     local PanelVisible = true
+    local FadeDuration = 0.28   -- ← change this if you want faster/slower (0.2 = fast, 0.4 = slow)
+
     self:Connection(ToggleButton.MouseButton1Down, function()
         PanelVisible = not PanelVisible
-        main.Visible = PanelVisible
+
+        if PanelVisible then
+            -- === OPENING ===
+            main.Visible = true
+            main.BackgroundTransparency = 1
+            TweenService:Create(main, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = 0
+            }):Play()
+        else
+            -- === CLOSING ===
+            local tween = TweenService:Create(main, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                BackgroundTransparency = 1
+            })
+            tween:Play()
+
+            tween.Completed:Connect(function()
+                if not PanelVisible then
+                    main.Visible = false
+                    main.BackgroundTransparency = 0   -- reset for next open
+                end
+            end)
+        end
+
+        -- Close popups when hiding (same as before)
         if not PanelVisible then
             if CloseFolderPopup then CloseFolderPopup() end
             if CloseSettingsPopup then CloseSettingsPopup() end
