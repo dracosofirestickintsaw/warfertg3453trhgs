@@ -4479,7 +4479,7 @@ function Library:Panel(options)
             PaddingLeft = Dim(0, 10),
             PaddingRight = Dim(0, 10),
             PaddingTop = Dim(0, 10),
-            PaddingBottom = Dim(0, 11),
+            PaddingBottom = Dim(0, 10.5),
         })
 
         self:CreateInstance("UIListLayout", {
