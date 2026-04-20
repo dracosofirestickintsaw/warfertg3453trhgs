@@ -7192,14 +7192,16 @@ function Library:Panel(options)
 
     self:MakeDraggable(WatermarkCard)
 
-    local StatsService = game:GetService("Stats")
-    local WatermarkGameName = tostring(game.Name or "Unknown Game")
-    -- Prefer local place name to avoid remote API failures during boot.
-    do
-        local PlaceName = tostring(game.Name or "")
-        if PlaceName ~= "" then
-            WatermarkGameName = PlaceName
-        end
+    local WatermarkGameName = "Unknown Game"
+
+    local success, productInfo = pcall(function()
+        return MarketplaceService:GetProductInfo(game.PlaceId)
+    end)
+
+    if success and productInfo and productInfo.Name then
+        WatermarkGameName = productInfo.Name
+    else
+        WatermarkGameName = tostring(game.Name or "Unknown Game")
     end
     local WatermarkFps = 0
     local WatermarkPing = "--"
