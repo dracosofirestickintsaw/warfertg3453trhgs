@@ -4173,7 +4173,7 @@ function Library:Panel(options)
         FontFace = Fonts.Title,
         Text = SidebarTitleText,
         TextColor3 = Palette.Swatches.text,
-        TextSize = 16,
+        TextSize = 30,
         LineHeight = 1.08,
         TextXAlignment = Enum.TextXAlignment.Center,
         TextYAlignment = Enum.TextYAlignment.Top,
