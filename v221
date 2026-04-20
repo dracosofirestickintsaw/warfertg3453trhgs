@@ -4242,30 +4242,41 @@ function Library:Panel(options)
     self:MakeDraggable(ToggleButton)
 
     local PanelVisible = true
-    local FadeDuration = 0.28   -- ← change this if you want it faster/slower
+    local FadeDuration = 0.28   -- ← you can change this (0.22 = faster, 0.35 = smoother)
 
     self:Connection(ToggleButton.MouseButton1Down, function()
         PanelVisible = not PanelVisible
 
         if PanelVisible then
-            -- === OPEN ANIMATION ===
+            -- ====================== OPEN ======================
             main.Visible = true
-            main.BackgroundTransparency = 1
 
-            -- Fade in main background + stroke
+            -- Reset everything to fully visible instantly (prevents color loss on re-open)
+            main.BackgroundTransparency = 1
+            local stroke = main:FindFirstChildWhichIsA("UIStroke")
+            if stroke then stroke.Transparency = 1 end
+
+            for _, obj in ipairs(main:GetDescendants()) do
+                if obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
+                    obj.BackgroundTransparency = 1
+                elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+                    obj.TextTransparency = 1
+                elseif obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+                    obj.ImageTransparency = 1
+                end
+            end
+
+            -- Now fade everything in smoothly
             TweenService:Create(main, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundTransparency = 0
             }):Play()
 
-            local stroke = main:FindFirstChildWhichIsA("UIStroke")
             if stroke then
-                stroke.Transparency = 1
                 TweenService:Create(stroke, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                     Transparency = 0
                 }):Play()
             end
 
-            -- Fade in ALL children (sidebar, searchbar, tabs, sections, text, icons, etc.)
             for _, obj in ipairs(main:GetDescendants()) do
                 if obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
                     if obj.BackgroundTransparency < 1 then
@@ -4274,12 +4285,10 @@ function Library:Panel(options)
                         }):Play()
                     end
                 elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                    obj.TextTransparency = 1
                     TweenService:Create(obj, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                         TextTransparency = 0
                     }):Play()
                 elseif obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-                    obj.ImageTransparency = 1
                     TweenService:Create(obj, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                         ImageTransparency = 0
                     }):Play()
@@ -4287,10 +4296,10 @@ function Library:Panel(options)
             end
 
         else
-            -- === CLOSE ANIMATION ===
+            -- ====================== CLOSE ======================
             local stroke = main:FindFirstChildWhichIsA("UIStroke")
 
-            -- Fade out background + stroke
+            -- Fade everything out
             TweenService:Create(main, TweenInfo.new(FadeDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                 BackgroundTransparency = 1
             }):Play()
@@ -4301,7 +4310,6 @@ function Library:Panel(options)
                 }):Play()
             end
 
-            -- Fade out everything inside
             for _, obj in ipairs(main:GetDescendants()) do
                 if obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
                     if obj.BackgroundTransparency < 1 then
@@ -4320,10 +4328,11 @@ function Library:Panel(options)
                 end
             end
 
-            -- Hide after fade completes
+            -- Hide after fade finishes
             task.delay(FadeDuration + 0.05, function()
                 if not PanelVisible then
                     main.Visible = false
+                    -- Reset everything for next open
                     main.BackgroundTransparency = 0
                     if stroke then stroke.Transparency = 0 end
                 end
