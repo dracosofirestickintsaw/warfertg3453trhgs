@@ -4207,8 +4207,8 @@ function Library:Panel(options)
     local ToggleButton = self:CreateInstance("TextButton", {
     Parent = screen,
     Name = "toggle_button",
-    AnchorPoint = Vector2.new(0, 1),
-    Position = Dim2(0, 20, 1, -90),
+    AnchorPoint = Vector2.new(0, 0),
+    Position = Dim2(0, 20, 0, Camera.ViewportSize.Y - 90),
     Size = Dim2(0, 70, 0, 70),
     BackgroundColor3 = Palette.Swatches.control,
     BorderSizePixel = 0,
