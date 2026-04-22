@@ -1362,6 +1362,8 @@ function Library:Dispose()
         self._OverlayGui:Destroy()
         self._OverlayGui = nil
     end
+    self._ScaledUiRoot = nil
+    self._PanelUiScale = nil
     self.Items = nil
     self.Other = nil
     self.CurrentOpen = nil
@@ -2871,10 +2873,9 @@ function Library:CreateSettingsSection(parent, spec)
         end
 
         local function ComputeListHeight()
-            if #Items == 0 then
-                return 0
-            end
-            return math.min(174, 12 + #Items * 30 + math.max(0, #Items - 1) * 4)
+            if #Items == 0 then return 0 end
+            local extra = SearchEnabled and 40 or 0
+            return math.min(174, 12 + #Items * 30 + math.max(0, #Items - 1) * 4) + extra
         end
 
         local function SyncDropdownPosition()
@@ -2942,6 +2943,67 @@ function Library:CreateSettingsSection(parent, spec)
             DropdownAnimTween:Play()
         end
 
+        local SearchEnabled = Opt.SearchBarEnabled == true or Opt.searchBarEnabled == true
+        local SearchQuery = ""
+        if SearchEnabled then
+            local SearchBar = LibraryRef:CreateInstance("Frame", {
+                Parent = DropdownPopup,
+                Name = "dropdown_search_bar",
+                BackgroundColor3 = Rgb(54, 54, 66),
+                BorderSizePixel = 0,
+                Position = Dim2(0, 8, 0, 6),
+                Size = Dim2(1, -16, 0, 28),
+                ZIndex = 102,
+            })
+            LibraryRef:CreateInstance("UICorner", { Parent = SearchBar, CornerRadius = Dim(0, 6) })
+            LibraryRef:CreateInstance("ImageLabel", {
+                Parent = SearchBar,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                Position = Dim2(0, 8, 0.5, 0),
+                AnchorPoint = Vector2.new(0, 0.5),
+                Size = Dim2(0, 12, 0, 12),
+                Image = "rbxassetid://133574764145541",
+                ImageColor3 = Rgb(152, 152, 172),
+                ScaleType = Enum.ScaleType.Fit,
+                ZIndex = 103,
+            })
+            local SearchInput = LibraryRef:CreateInstance("TextBox", {
+                Parent = SearchBar,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                Position = Dim2(0, 26, 0, 0),
+                Size = Dim2(1, -34, 1, 0),
+                FontFace = LibraryRef.Fonts.Inter,
+                Text = "",
+                PlaceholderText = "Search...",
+                PlaceholderColor3 = Rgb(99, 99, 115),
+                TextColor3 = Rgb(255, 255, 255),
+                TextSize = 13,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextYAlignment = Enum.TextYAlignment.Center,
+                ClearTextOnFocus = false,
+                ZIndex = 103,
+            })
+            ListScroll.Position = Dim2(0, 0, 0, 40)
+            ListScroll.Size = Dim2(1, -17, 1, -40)
+            LibraryRef:Connection(SearchInput:GetPropertyChangedSignal("Text"), function()
+                SearchQuery = tostring(SearchInput.Text or ""):lower()
+                for i, row in ipairs(OptionRows) do
+                    if row.button then
+                        local label = Items[i] or ""
+                        row.button.Visible = SearchQuery == "" or string.find(label:lower(), SearchQuery, 1, true) ~= nil
+                    end
+                end
+            end)
+            LibraryRef:Connection(DropdownPopup:GetPropertyChangedSignal("Visible"), function()
+                if not DropdownPopup.Visible then
+                    SearchInput.Text = ""
+                    SearchQuery = ""
+                end
+            end)
+        end
+-- search bar
         local function BuildOptions()
             for _, child in ipairs(ListScroll:GetChildren()) do
                 if child:IsA("TextButton") and child.Name:sub(1, 16) == "dropdown_option_" then
@@ -3763,6 +3825,53 @@ function Library:Panel(options)
 
     self._ScreenGui = screen
 
+    local function ComputePanelScale()
+        local cam = workspace.CurrentCamera
+        if not cam then
+            return 1
+        end
+        local shortSide = math.min(cam.ViewportSize.X, cam.ViewportSize.Y)
+        if shortSide <= 0 then
+            return 1
+        end
+        local margin = 28
+        local design = 900
+        if UserInputService.TouchEnabled then
+            return math.clamp((shortSide - margin) / design, 0.45, 1)
+        end
+        if shortSide < 720 then
+            return math.clamp((shortSide - margin) / design, 0.55, 1)
+        end
+        return 1
+    end
+
+    local uiScaleRoot = self:CreateInstance("Frame", {
+        Parent = screen,
+        Name = "panel_ui_scale_root",
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ClipsDescendants = false,
+        Position = Dim2(0, 0, 0, 0),
+        Size = Dim2(1, 0, 1, 0),
+        ZIndex = 1,
+    })
+    local panelUiScale = self:CreateInstance("UIScale", {
+        Parent = uiScaleRoot,
+        Scale = ComputePanelScale(),
+    })
+    self._ScaledUiRoot = uiScaleRoot
+    self._PanelUiScale = panelUiScale
+
+    local function RefreshPanelScale()
+        if panelUiScale and panelUiScale.Parent then
+            panelUiScale.Scale = ComputePanelScale()
+        end
+    end
+    local panelScaleCam = workspace.CurrentCamera
+    if panelScaleCam then
+        self:Connection(panelScaleCam:GetPropertyChangedSignal("ViewportSize"), RefreshPanelScale)
+    end
+
     local overlayGui = self:CreateInstance("ScreenGui", {
         Parent = CoreGui,
         Name = "\0",
@@ -3775,7 +3884,7 @@ function Library:Panel(options)
     self.Items = screen
     self.Other = overlayGui
     self.NotifyHost = self:CreateInstance("Frame", {
-        Parent = screen,
+        Parent = uiScaleRoot,
         Name = "notify_host",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -3785,7 +3894,7 @@ function Library:Panel(options)
     })
 
     local main = self:CreateInstance("Frame", {
-        Parent = screen,
+        Parent = uiScaleRoot,
         Name = "\0",
         Size = size,
         Position = Dim2(0.5, -size.X.Offset / 2, 0.5, -size.Y.Offset / 2),
@@ -4205,7 +4314,7 @@ function Library:Panel(options)
     end)
 
     local ToggleButton = self:CreateInstance("TextButton", {
-    Parent = screen,
+    Parent = uiScaleRoot,
     Name = "toggle_button",
     AnchorPoint = Vector2.new(0, 0),
     Position = Dim2(0, 20, 0, Camera.ViewportSize.Y - 90),
@@ -4942,7 +5051,7 @@ function Library:Panel(options)
     end)
 
     self._OwnerPresetsPopup = self:CreateInstance("Frame", {
-        Parent = screen,
+        Parent = uiScaleRoot,
         Name = "owner_presets_popup",
         BackgroundColor3 = Palette.Swatches.surface,
         BorderSizePixel = 0,
@@ -5268,7 +5377,7 @@ function Library:Panel(options)
     local ConfigContextIconDelete = "rbxassetid://121689670476896"
 
     local ConfigContextWrap = self:CreateInstance("Frame", {
-        Parent = screen,
+        Parent = uiScaleRoot,
         Name = "folder_config_context_wrap",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -5343,7 +5452,7 @@ function Library:Panel(options)
     end
 
     local FolderCreatePresetWrap = self:CreateInstance("Frame", {
-        Parent = screen,
+        Parent = uiScaleRoot,
         Name = "folder_create_preset_wrap",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -6436,7 +6545,7 @@ function Library:Panel(options)
         ZIndex = 60,
     })
     self._FolderFilterPopup = self:CreateInstance("Frame", {
-        Parent = screen,
+        Parent = uiScaleRoot,
         Name = "folder_filter_popup",
         BackgroundColor3 = Palette.Swatches.surface,
         BackgroundTransparency = 0,
@@ -7132,7 +7241,7 @@ function Library:Panel(options)
     local WatermarkEnabled = true
 
     local WatermarkCard = self:CreateInstance("Frame", {
-        Parent = screen,
+        Parent = uiScaleRoot,
         Name = "OptimumWatermark",
         BackgroundColor3 = Rgb(31, 31, 38),
         BorderSizePixel = 0,
