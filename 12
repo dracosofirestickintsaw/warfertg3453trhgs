@@ -1362,8 +1362,6 @@ function Library:Dispose()
         self._OverlayGui:Destroy()
         self._OverlayGui = nil
     end
-    self._ScaledUiRoot = nil
-    self._PanelUiScale = nil
     self.Items = nil
     self.Other = nil
     self.CurrentOpen = nil
@@ -3825,53 +3823,6 @@ function Library:Panel(options)
 
     self._ScreenGui = screen
 
-    local function ComputePanelScale()
-        local cam = workspace.CurrentCamera
-        if not cam then
-            return 1
-        end
-        local shortSide = math.min(cam.ViewportSize.X, cam.ViewportSize.Y)
-        if shortSide <= 0 then
-            return 1
-        end
-        local margin = 28
-        local design = 900
-        if UserInputService.TouchEnabled then
-            return math.clamp((shortSide - margin) / design, 0.45, 1)
-        end
-        if shortSide < 720 then
-            return math.clamp((shortSide - margin) / design, 0.55, 1)
-        end
-        return 1
-    end
-
-    local uiScaleRoot = self:CreateInstance("Frame", {
-        Parent = screen,
-        Name = "panel_ui_scale_root",
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ClipsDescendants = false,
-        Position = Dim2(0, 0, 0, 0),
-        Size = Dim2(1, 0, 1, 0),
-        ZIndex = 1,
-    })
-    local panelUiScale = self:CreateInstance("UIScale", {
-        Parent = uiScaleRoot,
-        Scale = ComputePanelScale(),
-    })
-    self._ScaledUiRoot = uiScaleRoot
-    self._PanelUiScale = panelUiScale
-
-    local function RefreshPanelScale()
-        if panelUiScale and panelUiScale.Parent then
-            panelUiScale.Scale = ComputePanelScale()
-        end
-    end
-    local panelScaleCam = workspace.CurrentCamera
-    if panelScaleCam then
-        self:Connection(panelScaleCam:GetPropertyChangedSignal("ViewportSize"), RefreshPanelScale)
-    end
-
     local overlayGui = self:CreateInstance("ScreenGui", {
         Parent = CoreGui,
         Name = "\0",
@@ -3884,7 +3835,7 @@ function Library:Panel(options)
     self.Items = screen
     self.Other = overlayGui
     self.NotifyHost = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "notify_host",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -3894,7 +3845,7 @@ function Library:Panel(options)
     })
 
     local main = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "\0",
         Size = size,
         Position = Dim2(0.5, -size.X.Offset / 2, 0.5, -size.Y.Offset / 2),
@@ -4314,7 +4265,7 @@ function Library:Panel(options)
     end)
 
     local ToggleButton = self:CreateInstance("TextButton", {
-    Parent = uiScaleRoot,
+    Parent = screen,
     Name = "toggle_button",
     AnchorPoint = Vector2.new(0, 0),
     Position = Dim2(0, 20, 0, Camera.ViewportSize.Y - 90),
@@ -5051,7 +5002,7 @@ function Library:Panel(options)
     end)
 
     self._OwnerPresetsPopup = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "owner_presets_popup",
         BackgroundColor3 = Palette.Swatches.surface,
         BorderSizePixel = 0,
@@ -5377,7 +5328,7 @@ function Library:Panel(options)
     local ConfigContextIconDelete = "rbxassetid://121689670476896"
 
     local ConfigContextWrap = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "folder_config_context_wrap",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -5452,7 +5403,7 @@ function Library:Panel(options)
     end
 
     local FolderCreatePresetWrap = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "folder_create_preset_wrap",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -6545,7 +6496,7 @@ function Library:Panel(options)
         ZIndex = 60,
     })
     self._FolderFilterPopup = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "folder_filter_popup",
         BackgroundColor3 = Palette.Swatches.surface,
         BackgroundTransparency = 0,
@@ -7241,7 +7192,7 @@ function Library:Panel(options)
     local WatermarkEnabled = true
 
     local WatermarkCard = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "OptimumWatermark",
         BackgroundColor3 = Rgb(31, 31, 38),
         BorderSizePixel = 0,
