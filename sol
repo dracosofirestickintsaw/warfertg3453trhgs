@@ -24,7 +24,7 @@ local Dim = UDim.new
 local Insert = table.insert
 local UnpackValues = table.unpack or unpack
 local Camera = workspace.CurrentCamera
-local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local IsMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 
 local Library = {
     Directory = "Optimum",
@@ -4274,9 +4274,7 @@ function Library:Panel(options)
         Parent = screen,
         Name = "toggle_button",
         AnchorPoint = Vector2.new(0, 0),
-        self:Connection(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"), function()
-            ToggleButton.Position = Dim2(0, 10, 0, Camera.ViewportSize.Y - (ToggleBtnSize + 10))
-        end)
+        Position = Dim2(0, 10, 0, Camera.ViewportSize.Y - (ToggleBtnSize + 10)),
         Size = Dim2(0, ToggleBtnSize, 0, ToggleBtnSize),
         BackgroundColor3 = Palette.Swatches.control,
         BorderSizePixel = 0,
