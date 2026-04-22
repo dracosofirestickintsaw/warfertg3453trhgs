@@ -608,19 +608,8 @@ end
 function Library:MakeDraggable(frame, excludeFromDrag)
     excludeFromDrag = excludeFromDrag or {}
     local dragging = false
-    local AbsStart = nil
-    local InputStart = nil
-    local ActiveInput = nil
-
-    local function GetScale()
-        local p = frame.Parent
-        while p do
-            local us = p:FindFirstChildOfClass("UIScale")
-            if us then return us.Scale end
-            p = p.Parent
-        end
-        return 1
-    end
+    local StartPos = frame.Position
+    local start = nil
 
     local function IsPointerOver(UiObject, PointerPosition)
         if not (typeof(UiObject) == "Instance" and UiObject.Parent and PointerPosition) then
@@ -632,39 +621,50 @@ function Library:MakeDraggable(frame, excludeFromDrag)
     end
 
     self:Connection(frame.InputBegan, function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        local pos = input.Position
-        for _, ex in ipairs(excludeFromDrag) do
-            if IsPointerOver(ex, pos) then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local PointerPosition = input.Position or UserInputService:GetMouseLocation()
+            for _, ex in ipairs(excludeFromDrag) do
+                if IsPointerOver(ex, PointerPosition) then
+                    return
+                end
+            end
+            dragging = true
+            start = input.Position
+            StartPos = frame.Position
         end
-        dragging = true
-        InputStart = pos
-        AbsStart = frame.AbsolutePosition
-        ActiveInput = input
     end)
 
     self:Connection(frame.InputEnded, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
-            InputStart = nil
-            AbsStart = nil
-            ActiveInput = nil
+            start = nil
         end
     end)
 
-    self:Connection(UserInputService.InputChanged, function(input)
-        if not dragging or not InputStart or not AbsStart then return end
-        if input.UserInputType == Enum.UserInputType.Touch and input ~= ActiveInput then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        local Scale = GetScale()
-        local vx = Camera.ViewportSize.X
-        local vy = Camera.ViewportSize.Y
-        local fw = frame.AbsoluteSize.X
-        local fh = frame.AbsoluteSize.Y
-        local ap = frame.AnchorPoint
-        local NewAbsX = math.clamp(AbsStart.X + (input.Position.X - InputStart.X), 0, vx - fw)
-        local NewAbsY = math.clamp(AbsStart.Y + (input.Position.Y - InputStart.Y), 0, vy - fh)
-        self:EaseTo(frame, { Position = Dim2(0, (NewAbsX + ap.X * fw) / Scale, 0, (NewAbsY + ap.Y * fh) / Scale) }, Enum.EasingStyle.Linear, 0.05)
+    self:Connection(UserInputService.InputChanged, function(input, _game_processed)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and start then
+            local vx = Camera.ViewportSize.X
+            local vy = Camera.ViewportSize.Y
+            local fw = frame.Size.X.Offset
+            local fh = frame.Size.Y.Offset
+
+            local NextPos = Dim2(
+                0,
+                math.clamp(
+                    StartPos.X.Offset + (input.Position.X - start.X),
+                    0,
+                    vx - fw
+                ),
+                0,
+                math.clamp(
+                    StartPos.Y.Offset + (input.Position.Y - start.Y),
+                    0,
+                    vy - fh
+                )
+            )
+
+            self:EaseTo(frame, { Position = NextPos }, Enum.EasingStyle.Linear, 0.05)
+        end
     end)
 end
 
@@ -1362,8 +1362,6 @@ function Library:Dispose()
         self._OverlayGui:Destroy()
         self._OverlayGui = nil
     end
-    self._ScaledUiRoot = nil
-    self._PanelUiScale = nil
     self.Items = nil
     self.Other = nil
     self.CurrentOpen = nil
@@ -3825,53 +3823,6 @@ function Library:Panel(options)
 
     self._ScreenGui = screen
 
-    local function ComputePanelScale()
-        local cam = workspace.CurrentCamera
-        if not cam then
-            return 1
-        end
-        local shortSide = math.min(cam.ViewportSize.X, cam.ViewportSize.Y)
-        if shortSide <= 0 then
-            return 1
-        end
-        local margin = 28
-        local design = 900
-        if UserInputService.TouchEnabled then
-            return math.clamp((shortSide - margin) / design, 0.45, 1)
-        end
-        if shortSide < 720 then
-            return math.clamp((shortSide - margin) / design, 0.55, 1)
-        end
-        return 1
-    end
-
-    local uiScaleRoot = self:CreateInstance("Frame", {
-        Parent = screen,
-        Name = "panel_ui_scale_root",
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ClipsDescendants = false,
-        Position = Dim2(0, 0, 0, 0),
-        Size = Dim2(1, 0, 1, 0),
-        ZIndex = 1,
-    })
-    local panelUiScale = self:CreateInstance("UIScale", {
-        Parent = uiScaleRoot,
-        Scale = ComputePanelScale(),
-    })
-    self._ScaledUiRoot = uiScaleRoot
-    self._PanelUiScale = panelUiScale
-
-    local function RefreshPanelScale()
-        if panelUiScale and panelUiScale.Parent then
-            panelUiScale.Scale = ComputePanelScale()
-        end
-    end
-    local panelScaleCam = workspace.CurrentCamera
-    if panelScaleCam then
-        self:Connection(panelScaleCam:GetPropertyChangedSignal("ViewportSize"), RefreshPanelScale)
-    end
-
     local overlayGui = self:CreateInstance("ScreenGui", {
         Parent = CoreGui,
         Name = "\0",
@@ -3884,7 +3835,7 @@ function Library:Panel(options)
     self.Items = screen
     self.Other = overlayGui
     self.NotifyHost = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "notify_host",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -3894,7 +3845,7 @@ function Library:Panel(options)
     })
 
     local main = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "\0",
         Size = size,
         Position = Dim2(0.5, -size.X.Offset / 2, 0.5, -size.Y.Offset / 2),
@@ -4314,7 +4265,7 @@ function Library:Panel(options)
     end)
 
     local ToggleButton = self:CreateInstance("TextButton", {
-    Parent = uiScaleRoot,
+    Parent = screen,
     Name = "toggle_button",
     AnchorPoint = Vector2.new(0, 0),
     Position = Dim2(0, 20, 0, Camera.ViewportSize.Y - 90),
@@ -5051,7 +5002,7 @@ function Library:Panel(options)
     end)
 
     self._OwnerPresetsPopup = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "owner_presets_popup",
         BackgroundColor3 = Palette.Swatches.surface,
         BorderSizePixel = 0,
@@ -5377,7 +5328,7 @@ function Library:Panel(options)
     local ConfigContextIconDelete = "rbxassetid://121689670476896"
 
     local ConfigContextWrap = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "folder_config_context_wrap",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -5452,7 +5403,7 @@ function Library:Panel(options)
     end
 
     local FolderCreatePresetWrap = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "folder_create_preset_wrap",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -6545,7 +6496,7 @@ function Library:Panel(options)
         ZIndex = 60,
     })
     self._FolderFilterPopup = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "folder_filter_popup",
         BackgroundColor3 = Palette.Swatches.surface,
         BackgroundTransparency = 0,
@@ -6867,7 +6818,6 @@ function Library:Panel(options)
         SortOrder = Enum.SortOrder.LayoutOrder,
     })
 
-    do
     local SettingsLocalPlayer = Players.LocalPlayer
     local SettingsAvatarUserId = (SettingsLocalPlayer and SettingsLocalPlayer.UserId) or 1
     local SettingsAvatarUrl = ("rbxthumb://type=AvatarHeadShot&id=%s&w=150&h=150"):format(SettingsAvatarUserId)
@@ -6964,7 +6914,6 @@ function Library:Panel(options)
         LayoutOrder = 2,
         ZIndex = 58,
     })
-    end
 
     self:CreateInstance("Frame", {
         Parent = SettingsInner,
@@ -7243,14 +7192,13 @@ function Library:Panel(options)
     local WatermarkEnabled = true
 
     local WatermarkCard = self:CreateInstance("Frame", {
-        Parent = uiScaleRoot,
+        Parent = screen,
         Name = "OptimumWatermark",
         BackgroundColor3 = Rgb(31, 31, 38),
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0),
         Position = Dim2(0.5, 0, 0, 16),
-        Size = Dim2(0, 0, 0, 44),
-        AutomaticSize = Enum.AutomaticSize.X,
+        Size = Dim2(0, 520, 0, 44),
         ZIndex = 160,
         Active = true,
         Visible = WatermarkEnabled,
@@ -7259,30 +7207,14 @@ function Library:Panel(options)
         Parent = WatermarkCard,
         CornerRadius = Dim(0, 10),
     })
-    self:CreateInstance("UIListLayout", {
-        Parent = WatermarkCard,
-        FillDirection = Enum.FillDirection.Horizontal,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 0),
-    })
-    self:CreateInstance("UIPadding", {
-        Parent = WatermarkCard,
-        PaddingLeft = UDim.new(0, 12),
-        PaddingRight = UDim.new(0, 12),
-    })
-    self:CreateInstance("UISizeConstraint", {
-        Parent = WatermarkCard,
-        MinSize = Vector2.new(210, 44),
-    })
     local WatermarkTitle = self:CreateInstance("TextLabel", {
         Parent = WatermarkCard,
         Name = "watermark_title",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
+        Position = Dim2(0, 12, 0, 0),
         Size = Dim2(0, 0, 1, 0),
         AutomaticSize = Enum.AutomaticSize.X,
-        LayoutOrder = 1,
         FontFace = SearchFontFace,
         Text = "Lunaris",
         TextColor3 = Rgb(255, 255, 255),
@@ -7295,21 +7227,14 @@ function Library:Panel(options)
         Parent = WatermarkTitle,
         Color = ColorSequence.new(Palette.Swatches.accent2, Palette.Swatches.accent3),
     })
-    local WatermarkGap = self:CreateInstance("Frame", {
-        Parent = WatermarkCard,
-        BackgroundTransparency = 1,
-        Size = Dim2(0, 18, 1, 0),
-        LayoutOrder = 2,
-        Visible = false,
-    })
     local WatermarkInfo = self:CreateInstance("TextLabel", {
         Parent = WatermarkCard,
         Name = "watermark_info",
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
+        Position = Dim2(0, 12, 0, 0),
         Size = Dim2(0, 0, 1, 0),
         AutomaticSize = Enum.AutomaticSize.X,
-        LayoutOrder = 3,
         FontFace = SearchFontFace,
         Text = "",
         TextColor3 = Palette.Swatches.text,
@@ -7377,9 +7302,20 @@ function Library:Panel(options)
             TitleText = "Lunaris Hub"
         end
         WatermarkTitle.Text = TitleText
-        local InfoText = table.concat(Parts, "    ")
-        WatermarkInfo.Text = InfoText
-        WatermarkGap.Visible = TitleText ~= "" and InfoText ~= ""
+        WatermarkInfo.Text = table.concat(Parts, "    ")
+        task.defer(function()
+            if not WatermarkCard.Parent or not WatermarkTitle.Parent or not WatermarkInfo.Parent then
+                return
+            end
+            local BaseX = 12
+            local Gap = (WatermarkTitle.Text ~= "" and WatermarkInfo.Text ~= "") and 18 or 0
+            local TitleWidth = math.max(0, WatermarkTitle.TextBounds.X)
+            local InfoWidth = math.max(0, WatermarkInfo.TextBounds.X)
+            WatermarkTitle.Position = Dim2(0, BaseX, 0, 0)
+            WatermarkInfo.Position = Dim2(0, BaseX + TitleWidth + Gap, 0, 0)
+            local Width = math.max(210, math.floor(BaseX + TitleWidth + Gap + InfoWidth + 12))
+            WatermarkCard.Size = Dim2(0, Width, 0, 44)
+        end)
     end
 
     self:Connection(RunService.RenderStepped, function(dt)
@@ -7972,82 +7908,79 @@ function Library:Panel(options)
         ZIndex = 2,
     })
 
-    local Fades = {}
-    do
-        Fades.Top = self:CreateInstance("Frame", {
-            Parent = ContentBody,
-            Name = "content_edge_fade_top",
-            BackgroundColor3 = Rgb(27, 27, 33),
-            BorderSizePixel = 0,
-            Size = Dim2(1, 0, 0, 32),
-            Position = Dim2(0, 0, 0, 0),
-            Active = false,
-            Visible = false,
-            ZIndex = 30,
-        })
-        self:CreateInstance("UIGradient", {
-            Parent = Fades.Top,
-            Rotation = 90,
-            Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0),
-                NumberSequenceKeypoint.new(0.42, 0.12),
-                NumberSequenceKeypoint.new(1, 1),
-            }),
-        })
+    local FadeTop = self:CreateInstance("Frame", {
+        Parent = ContentBody,
+        Name = "content_edge_fade_top",
+        BackgroundColor3 = Rgb(27, 27, 33),
+        BorderSizePixel = 0,
+        Size = Dim2(1, 0, 0, 32),
+        Position = Dim2(0, 0, 0, 0),
+        Active = false,
+        Visible = false,
+        ZIndex = 30,
+    })
+    self:CreateInstance("UIGradient", {
+        Parent = FadeTop,
+        Rotation = 90,
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(0.42, 0.12),
+            NumberSequenceKeypoint.new(1, 1),
+        }),
+    })
 
-        Fades.Bottom = self:CreateInstance("Frame", {
-            Parent = ContentBody,
-            Name = "content_edge_fade_bottom",
-            BackgroundColor3 = Rgb(27, 27, 33),
-            BorderSizePixel = 0,
-            AnchorPoint = Vector2.new(0, 1),
-            Size = Dim2(1, 0, 0, 18),
-            Position = Dim2(0, 0, 1, 0),
-            Active = false,
-            Visible = false,
-            ZIndex = 30,
-        })
-        self:CreateInstance("UIGradient", {
-            Parent = Fades.Bottom,
-            Rotation = 90,
-            Transparency = NumberSequence.new(1, 0),
-        })
+    local FadeBottom = self:CreateInstance("Frame", {
+        Parent = ContentBody,
+        Name = "content_edge_fade_bottom",
+        BackgroundColor3 = Rgb(27, 27, 33),
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0, 1),
+        Size = Dim2(1, 0, 0, 18),
+        Position = Dim2(0, 0, 1, 0),
+        Active = false,
+        Visible = false,
+        ZIndex = 30,
+    })
+    self:CreateInstance("UIGradient", {
+        Parent = FadeBottom,
+        Rotation = 90,
+        Transparency = NumberSequence.new(1, 0),
+    })
 
-        Fades.Left = self:CreateInstance("Frame", {
-            Parent = ContentBody,
-            Name = "content_edge_fade_left",
-            BackgroundColor3 = Rgb(27, 27, 33),
-            BorderSizePixel = 0,
-            Size = Dim2(0, 18, 1, 0),
-            Position = Dim2(0, 0, 0, 0),
-            Active = false,
-            Visible = false,
-            ZIndex = 30,
-        })
-        self:CreateInstance("UIGradient", {
-            Parent = Fades.Left,
-            Rotation = 0,
-            Transparency = NumberSequence.new(0, 1),
-        })
+    local FadeLeft = self:CreateInstance("Frame", {
+        Parent = ContentBody,
+        Name = "content_edge_fade_left",
+        BackgroundColor3 = Rgb(27, 27, 33),
+        BorderSizePixel = 0,
+        Size = Dim2(0, 18, 1, 0),
+        Position = Dim2(0, 0, 0, 0),
+        Active = false,
+        Visible = false,
+        ZIndex = 30,
+    })
+    self:CreateInstance("UIGradient", {
+        Parent = FadeLeft,
+        Rotation = 0,
+        Transparency = NumberSequence.new(0, 1),
+    })
 
-        Fades.Right = self:CreateInstance("Frame", {
-            Parent = ContentBody,
-            Name = "content_edge_fade_right",
-            BackgroundColor3 = Rgb(27, 27, 33),
-            BorderSizePixel = 0,
-            AnchorPoint = Vector2.new(1, 0),
-            Size = Dim2(0, 18, 1, 0),
-            Position = Dim2(1, 0, 0, 0),
-            Active = false,
-            Visible = false,
-            ZIndex = 30,
-        })
-        self:CreateInstance("UIGradient", {
-            Parent = Fades.Right,
-            Rotation = 0,
-            Transparency = NumberSequence.new(1, 0),
-        })
-    end
+    local FadeRight = self:CreateInstance("Frame", {
+        Parent = ContentBody,
+        Name = "content_edge_fade_right",
+        BackgroundColor3 = Rgb(27, 27, 33),
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(1, 0),
+        Size = Dim2(0, 18, 1, 0),
+        Position = Dim2(1, 0, 0, 0),
+        Active = false,
+        Visible = false,
+        ZIndex = 30,
+    })
+    self:CreateInstance("UIGradient", {
+        Parent = FadeRight,
+        Rotation = 0,
+        Transparency = NumberSequence.new(1, 0),
+    })
 
     local function UpdateContentEdgeFades()
         if not ContentScroll or not ContentScroll.Parent then
@@ -8058,12 +7991,14 @@ function Library:Panel(options)
         local pos = ContentScroll.CanvasPosition
         local maxY = math.max(0, canvas.Y - win.Y)
         local maxX = math.max(0, canvas.X - win.X)
-        Fades.Top.Visible = maxY > 1.5 and pos.Y > 1.5
-        Fades.Bottom.Visible = maxY > 1.5 and pos.Y < maxY - 1.5
+        FadeTop.Visible = maxY > 1.5 and pos.Y > 1.5
+        FadeBottom.Visible = maxY > 1.5 and pos.Y < maxY - 1.5
+        -- Content scroll is vertical-only; canvas X can still exceed window X by a few px and
+        -- wrongly enable side fades (reads like the section is "fading" on the right).
         local horiz = ContentScroll.ScrollingDirection
         local allowHorizFade = horiz == Enum.ScrollingDirection.XY or horiz == Enum.ScrollingDirection.X
-        Fades.Left.Visible = allowHorizFade and maxX > 1.5 and pos.X > 1.5
-        Fades.Right.Visible = allowHorizFade and maxX > 1.5 and pos.X < maxX - 1.5
+        FadeLeft.Visible = allowHorizFade and maxX > 1.5 and pos.X > 1.5
+        FadeRight.Visible = allowHorizFade and maxX > 1.5 and pos.X < maxX - 1.5
     end
 
     self:Connection(ContentScroll:GetPropertyChangedSignal("CanvasPosition"), UpdateContentEdgeFades)
@@ -8570,4 +8505,3 @@ end
 getgenv().Library = Library
 
 return Library
-
