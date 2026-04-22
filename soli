@@ -4274,7 +4274,9 @@ function Library:Panel(options)
         Parent = screen,
         Name = "toggle_button",
         AnchorPoint = Vector2.new(0, 0),
-        Position = Dim2(0, 10, 0, Camera.ViewportSize.Y - (ToggleBtnSize + 10)),
+        self:Connection(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"), function()
+            ToggleButton.Position = Dim2(0, 10, 0, Camera.ViewportSize.Y - (ToggleBtnSize + 10))
+        end)
         Size = Dim2(0, ToggleBtnSize, 0, ToggleBtnSize),
         BackgroundColor3 = Palette.Swatches.control,
         BorderSizePixel = 0,
