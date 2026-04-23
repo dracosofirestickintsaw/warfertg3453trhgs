@@ -2862,8 +2862,12 @@ function Library:CreateSettingsSection(parent, spec)
             CornerRadius = Dim(0, math.max(1, math.floor(5 / 2))),
         })
 
+        local DropdownOpenAnimating = false
         local function UpdateDropdownScrollThumb()
             if not DropdownPopup.Visible then
+                return
+            end
+            if DropdownOpenAnimating then
                 return
             end
             local winY = ListScroll.AbsoluteWindowSize.Y
@@ -3181,6 +3185,7 @@ function Library:CreateSettingsSection(parent, spec)
             local as = Field.AbsoluteSize
             local w = as.X / _ddopenscale
             CancelDropdownAnimTween()
+            DropdownOpenAnimating = true
             DropdownPopup.Size = Dim2(0, w, 0, 0)
             DropdownPopup.Position = Dim2(0, ap.X / _ddopenscale, 0, (ap.Y + as.Y) / _ddopenscale + 6)
             ScrollThumb.Visible = false
@@ -3204,6 +3209,7 @@ function Library:CreateSettingsSection(parent, spec)
             openTweenConn = DropdownAnimTween.Completed:Connect(function()
                 openTweenConn:Disconnect()
                 DropdownAnimTween = nil
+                DropdownOpenAnimating = false
                 UpdateDropdownScrollThumb()
             end)
             DropdownAnimTween:Play()
