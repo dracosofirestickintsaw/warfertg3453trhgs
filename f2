@@ -3097,7 +3097,7 @@ function Library:CreateSettingsSection(parent, spec)
                     FontFace = LibraryRef.Fonts.Inter,
                     Text = EllipsizeDisplay(label),
                     TextColor3 = Rgb(99, 99, 115),
-                    TextSize = 12,
+                    TextSize = 14,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     TextYAlignment = Enum.TextYAlignment.Center,
                     TextTruncate = Enum.TextTruncate.None,
