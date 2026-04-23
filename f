@@ -2955,7 +2955,7 @@ function Library:CreateSettingsSection(parent, spec)
             local function finishClose()
                 DropdownPopup.Visible = false
                 if DropdownIcon and DropdownIcon.Parent then
-                    LibraryRef:Tween(DropdownIcon, { Rotation = 0 }, Enum.EasingStyle.Quad, 0.14)
+                    LibraryRef:Tween(DropdownIcon, { Rotation = 90 }, Enum.EasingStyle.Quad, 0.14)
                 end
                 if Library._DropdownClose == CloseDropdown then
                     Library._DropdownClose = nil
@@ -3180,7 +3180,7 @@ function Library:CreateSettingsSection(parent, spec)
             DropdownPopup.Position = Dim2(0, ap.X / _ddopenscale, 0, (ap.Y + as.Y) / _ddopenscale + 6)
             DropdownPopup.Visible = true
             if DropdownIcon and DropdownIcon.Parent then
-                LibraryRef:Tween(DropdownIcon, { Rotation = 180 }, Enum.EasingStyle.Quad, 0.18)
+                LibraryRef:Tween(DropdownIcon, { Rotation = 0 }, Enum.EasingStyle.Quad, 0.18)
             end
             Library._DropdownClose = CloseDropdown
 
