@@ -15,6 +15,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local CoreGui = game:GetService("CoreGui")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
+local IsMobile = UserInputService.TouchEnabled
 
 --// aliases
 local Rgb = Color3.fromRGB
@@ -24,7 +25,6 @@ local Dim = UDim.new
 local Insert = table.insert
 local UnpackValues = table.unpack or unpack
 local Camera = workspace.CurrentCamera
-local IsMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 
 local Library = {
     Directory = "Optimum",
@@ -1253,10 +1253,14 @@ local function MountColorpicker(LibraryRef, Trigger, GlyphLabel, opts)
         end
     end)
 
-    LibraryRef:Connection(items.alpha_gradient.MouseButton1Down, function()
-        cfg._suppress_colorpicker_outside_close = true
-        dragging_alpha = true
-        cfg.update_color()
+    LibraryRef:Connection(items.alpha_gradient.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            cfg._suppress_colorpicker_outside_close = true
+            dragging_alpha = true
+            LastPointerPosition = input.Position
+            cfg.update_color()
+        end
     end)
     LibraryRef:Connection(items.alpha_indicator.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1266,30 +1270,50 @@ local function MountColorpicker(LibraryRef, Trigger, GlyphLabel, opts)
             cfg.update_color()
         end
     end)
-    LibraryRef:Connection(items.alpha_picker.MouseButton1Down, function()
-        cfg._suppress_colorpicker_outside_close = true
-        dragging_alpha = true
-        cfg.update_color()
+    LibraryRef:Connection(items.alpha_picker.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            cfg._suppress_colorpicker_outside_close = true
+            dragging_alpha = true
+            LastPointerPosition = input.Position
+            cfg.update_color()
+        end
     end)
-    LibraryRef:Connection(items.hue_gradient.MouseButton1Down, function()
-        cfg._suppress_colorpicker_outside_close = true
-        dragging_hue = true
-        cfg.update_color()
+    LibraryRef:Connection(items.hue_gradient.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            cfg._suppress_colorpicker_outside_close = true
+            dragging_hue = true
+            LastPointerPosition = input.Position
+            cfg.update_color()
+        end
     end)
-    LibraryRef:Connection(items.hue_picker.MouseButton1Down, function()
-        cfg._suppress_colorpicker_outside_close = true
-        dragging_hue = true
-        cfg.update_color()
+    LibraryRef:Connection(items.hue_picker.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            cfg._suppress_colorpicker_outside_close = true
+            dragging_hue = true
+            LastPointerPosition = input.Position
+            cfg.update_color()
+        end
     end)
-    LibraryRef:Connection(items.sat.MouseButton1Down, function()
-        cfg._suppress_colorpicker_outside_close = true
-        dragging_sat = true
-        cfg.update_color()
+    LibraryRef:Connection(items.sat.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            cfg._suppress_colorpicker_outside_close = true
+            dragging_sat = true
+            LastPointerPosition = input.Position
+            cfg.update_color()
+        end
     end)
-    LibraryRef:Connection(items.satvalpicker.MouseButton1Down, function()
-        cfg._suppress_colorpicker_outside_close = true
-        dragging_sat = true
-        cfg.update_color()
+    LibraryRef:Connection(items.satvalpicker.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            cfg._suppress_colorpicker_outside_close = true
+            dragging_sat = true
+            LastPointerPosition = input.Position
+            cfg.update_color()
+        end
     end)
 
     LibraryRef:Connection(items.input.FocusLost, function()
@@ -2421,12 +2445,23 @@ function Library:CreateSettingsSection(parent, spec)
             Dragging = true
             SetFromClient(PointerToValue(UserInputService:GetMouseLocation().X), true)
         end)
-        LibraryRef:Connection(Hit.InputBegan, function(input)
-            if input.UserInputType == Enum.UserInputType.Touch then
-                Dragging = true
-                SetFromClient(PointerToValue(input.Position.X), true)
-            end
-        end)
+
+        if IsMobile then
+            LibraryRef:Connection(Hit.InputBegan, function(input)
+                if input.UserInputType == Enum.UserInputType.Touch then
+                    if Dragging then return end
+                    Dragging = true
+                    SetFromClient(PointerToValue(input.Position.X), true)
+                end
+            end)
+        else
+            LibraryRef:Connection(Hit.InputBegan, function(input)
+                if input.UserInputType == Enum.UserInputType.Touch then
+                    Dragging = true
+                    SetFromClient(PointerToValue(input.Position.X), true)
+                end
+            end)
+        end
 
         LibraryRef:Connection(UserInputService.InputChanged, function(input)
             if not Dragging then
@@ -3404,6 +3439,14 @@ function Library:CreateSettingsSection(parent, spec)
             ZIndex = 22,
         })
 
+        if IsMobile then
+            LibraryRef:Connection(Field.InputBegan, function(input)
+                if input.UserInputType == Enum.UserInputType.Touch then
+                    Input:CaptureFocus()
+                end
+            end)
+        end
+
         local Programmatic = false
         local function SetText(s, fireCallback)
             fireCallback = fireCallback ~= false
@@ -3802,10 +3845,7 @@ function Library:Panel(options)
     options = options or {}
 
     local rawSize = options.Size or options.size or Dim2(0, 860, 0, 590)
-    local vp = Camera.ViewportSize
-    local size = IsMobile
-        and Dim2(0, math.floor(vp.X - 10), 0, math.floor(vp.Y - 10))
-        or  Dim2(0, math.max(rawSize.X.Offset, 860), 0, math.max(rawSize.Y.Offset, 590))
+    local size = Dim2(0, math.max(rawSize.X.Offset, 860), 0, math.max(rawSize.Y.Offset, 590))
     local DefaultPanelHeight = size.Y.Offset
     local SidebarTitleText = options.SidebarTitle or options.sidebar_title or options.title or "OPTIMUM SOLUTIONS"
     local DefaultTabIcon = options.TabIcon or options.tab_icon or "rbxassetid://88390933415082"
@@ -3815,7 +3855,7 @@ function Library:Panel(options)
     if SearchFontFace == nil then
         SearchFontFace = self.Fonts.Inter
     end
-    local SearchTextSize = options.SearchTextSize or options.search_text_size or (IsMobile and 10 or 12)
+    local SearchTextSize = options.SearchTextSize or options.search_text_size or 12
 
     local screen = self:CreateInstance("ScreenGui", {
         Parent = CoreGui,
@@ -3826,6 +3866,12 @@ function Library:Panel(options)
     })
 
     self._ScreenGui = screen
+
+    if IsMobile then
+        local scale = Instance.new("UIScale")
+        scale.Scale = 0.65
+        scale.Parent = screen
+    end
 
     local overlayGui = self:CreateInstance("ScreenGui", {
         Parent = CoreGui,
@@ -3852,7 +3898,7 @@ function Library:Panel(options)
         Parent = screen,
         Name = "\0",
         Size = size,
-        Position = IsMobile and Dim2(0, 5, 0, 5) or Dim2(0.5, -size.X.Offset / 2, 0.5, -size.Y.Offset / 2),
+        Position = Dim2(0.5, -size.X.Offset / 2, 0.5, -size.Y.Offset / 2),
         BorderColor3 = Rgb(0, 0, 0),
         BorderSizePixel = 0,
         BackgroundColor3 = Palette.Swatches.window,
@@ -3861,7 +3907,7 @@ function Library:Panel(options)
 
     self:CreateInstance("UISizeConstraint", {
         Parent = main,
-        MinSize = IsMobile and Vector2.new(0, 0) or Vector2.new(860, 590),
+        MinSize = Vector2.new(860, 590),
     })
 
     self:CreateInstance("UICorner", {
@@ -4164,8 +4210,7 @@ function Library:Panel(options)
 
     local HeaderDivider
 
-    local SidebarWidth = IsMobile and (options.SidebarWidth or options.sidebar_width or 150)
-        or (options.SidebarWidth or options.sidebar_width or 232)
+    local SidebarWidth = options.SidebarWidth or options.sidebar_width or 232
 
     local sidebar = self:CreateInstance("Frame", {
         Parent = body,
@@ -4269,18 +4314,17 @@ function Library:Panel(options)
         end
     end)
 
-    local ToggleBtnSize = IsMobile and 50 or 70
     local ToggleButton = self:CreateInstance("TextButton", {
-        Parent = screen,
-        Name = "toggle_button",
-        AnchorPoint = Vector2.new(0, 0),
-        Position = Dim2(0, 10, 0, Camera.ViewportSize.Y - (ToggleBtnSize + 10)),
-        Size = Dim2(0, ToggleBtnSize, 0, ToggleBtnSize),
-        BackgroundColor3 = Palette.Swatches.control,
-        BorderSizePixel = 0,
-        Text = "",
-        AutoButtonColor = false,
-        ZIndex = 170,
+    Parent = screen,
+    Name = "toggle_button",
+    AnchorPoint = Vector2.new(0, 0),
+    Position = Dim2(0, 20, 0, Camera.ViewportSize.Y - 90),
+    Size = Dim2(0, 70, 0, 70),
+    BackgroundColor3 = Palette.Swatches.control,
+    BorderSizePixel = 0,
+    Text = "",
+    AutoButtonColor = false,
+    ZIndex = 170,
     })
     self:CreateInstance("UICorner", {
         Parent = ToggleButton,
@@ -4299,7 +4343,7 @@ function Library:Panel(options)
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = Dim2(0.5, 0, 0.5, 0),
-        Size = Dim2(0, IsMobile and 30 or 42, 0, IsMobile and 30 or 42),
+        Size = Dim2(0, 42, 0, 42),
         Image = options.Logo or options.logo or "rbxassetid://108616878420624",
         ScaleType = Enum.ScaleType.Fit,
         ZIndex = 171,
@@ -4308,7 +4352,15 @@ function Library:Panel(options)
     self:MakeDraggable(ToggleButton)
 
     local PanelVisible = true
-    self:Connection(ToggleButton.MouseButton1Down, function()
+    self:Connection(ToggleButton.InputBegan, function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+        and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+        local lastFire = ToggleButton:GetAttribute("LastFire") or 0
+        if tick() - lastFire < 0.15 then return end
+        ToggleButton:SetAttribute("LastFire", tick())
+        
         PanelVisible = not PanelVisible
         main.Visible = PanelVisible
         if not PanelVisible then
@@ -7204,7 +7256,7 @@ function Library:Panel(options)
         BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0),
         Position = Dim2(0.5, 0, 0, 16),
-        Size = Dim2(0, IsMobile and 340 or 520, 0, IsMobile and 34 or 44),
+        Size = Dim2(0, 520, 0, 44),
         ZIndex = 160,
         Active = true,
         Visible = WatermarkEnabled,
@@ -8420,9 +8472,7 @@ function Library:Panel(options)
         end
     end)
 
-    if not IsMobile then
-        self:MakeDraggable(main, { ContentFolderBtn, FolderPopup, ContentSettingsBtn, SettingsPopup, WatermarkPopup })
-    end
+    self:MakeDraggable(main, { ContentFolderBtn, FolderPopup, ContentSettingsBtn, SettingsPopup, WatermarkPopup })
 
     self:Connection(main.InputBegan, function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
