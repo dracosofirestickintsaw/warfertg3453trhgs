@@ -2910,6 +2910,10 @@ function Library:CreateSettingsSection(parent, spec)
                         row.check.Visible = (i == SelectedIndex)
                     end
                 end
+                if row.label then
+                    local isSelected = Multi and SelectedIndices[i] == true or (not Multi and i == SelectedIndex)
+                    row.label.TextColor3 = isSelected and Rgb(255, 255, 255) or Rgb(99, 99, 115)
+                end
             end
         end
 
@@ -3092,7 +3096,7 @@ function Library:CreateSettingsSection(parent, spec)
                     Size = Dim2(1, -24, 1, 0),
                     FontFace = LibraryRef.Fonts.Inter,
                     Text = EllipsizeDisplay(label),
-                    TextColor3 = Rgb(255, 255, 255),
+                    TextColor3 = Rgb(99, 99, 115),
                     TextSize = 12,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     TextYAlignment = Enum.TextYAlignment.Center,
@@ -3100,7 +3104,7 @@ function Library:CreateSettingsSection(parent, spec)
                     ZIndex = 103,
                 })
 
-                Insert(OptionRows, { button = Btn, check = Check })
+                Insert(OptionRows, { button = Btn, check = Check, label = TextLbl })
 
                 LibraryRef:Connection(Btn.MouseButton1Click, function()
                     if Multi then
