@@ -2763,6 +2763,7 @@ function Library:CreateSettingsSection(parent, spec)
             Image = "rbxassetid://97393699067510",
             ImageColor3 = Rgb(255, 255, 255),
             ScaleType = Enum.ScaleType.Fit,
+            Rotation = 90,
             ZIndex = 13,
         })
 
