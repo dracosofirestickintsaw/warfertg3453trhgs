@@ -606,6 +606,14 @@ function Library:Hovering(UiObject)
     return m.X >= ap.X and m.X <= ap.X + as.X and m.Y >= ap.Y and m.Y <= ap.Y + as.Y
 end
 
+function Library:GetGuiScale()
+    if self._ScreenGui then
+        local s = self._ScreenGui:FindFirstChildOfClass("UIScale")
+        if s then return s.Scale end
+    end
+    return 1
+end
+
 function Library:MakeDraggable(frame, excludeFromDrag)
     excludeFromDrag = excludeFromDrag or {}
     local dragging = false
@@ -1165,9 +1173,10 @@ local function MountColorpicker(LibraryRef, Trigger, GlyphLabel, opts)
         end
         items.colorpicker_fade.BackgroundTransparency = 0
         items.colorpicker_holder.Parent = bool and LibraryRef.Items or LibraryRef.Other
+        local _cpscale = LibraryRef:GetGuiScale()
         local ap = Trigger.AbsolutePosition
         local as = Trigger.AbsoluteSize
-        items.colorpicker_holder.Position = Dim2(0, ap.X + PopupOffsetX, 0, ap.Y + as.Y + PopupOffsetY)
+        items.colorpicker_holder.Position = Dim2(0, ap.X / _cpscale + PopupOffsetX, 0, ap.Y / _cpscale + as.Y / _cpscale + PopupOffsetY)
         LibraryRef:Tween(items.colorpicker_fade, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, 0.4)
         LibraryRef:Tween(items.colorpicker_holder, {
             Position = items.colorpicker_holder.Position + Dim2(0, 0, 0, 20),
@@ -2922,11 +2931,12 @@ function Library:CreateSettingsSection(parent, spec)
             if not DropdownPopup.Visible then
                 return
             end
+            local _ddscale = LibraryRef:GetGuiScale()
             local ap = Field.AbsolutePosition
             local as = Field.AbsoluteSize
-            local w = as.X
+            local w = as.X / _ddscale
             local h = DropdownPopup.Size.Y.Offset
-            DropdownPopup.Position = Dim2(0, ap.X, 0, ap.Y + as.Y + 63)
+            DropdownPopup.Position = Dim2(0, ap.X / _ddscale, 0, (ap.Y + as.Y) / _ddscale + 6)
             DropdownPopup.Size = Dim2(0, w, 0, h)
         end
 
@@ -3166,12 +3176,13 @@ function Library:CreateSettingsSection(parent, spec)
             end
 
             local listH = ComputeListHeight()
+            local _ddopenscale = LibraryRef:GetGuiScale()
             local ap = Field.AbsolutePosition
             local as = Field.AbsoluteSize
-            local w = as.X
+            local w = as.X / _ddopenscale
             CancelDropdownAnimTween()
             DropdownPopup.Size = Dim2(0, w, 0, 0)
-            DropdownPopup.Position = Dim2(0, ap.X, 0, ap.Y + as.Y + 63)
+            DropdownPopup.Position = Dim2(0, ap.X / _ddopenscale, 0, (ap.Y + as.Y) / _ddopenscale + 6)
             DropdownPopup.Visible = true
             Library._DropdownClose = CloseDropdown
 
@@ -4165,7 +4176,8 @@ function Library:Panel(options)
         if sectionApi and sectionApi.Root then
             TargetHeight = math.max(140, sectionApi.Root.AbsoluteSize.Y + 20)
         end
-        local MainHeight = main.AbsoluteSize.Y
+        local _tsoscale = self:GetGuiScale()
+        local MainHeight = main.AbsoluteSize.Y / _tsoscale
         local MaxHeight = math.max(140, MainHeight - 20)
         local PopupHeight = math.clamp(TargetHeight, 140, MaxHeight)
         ToggleSubOptionsPopup.Size = Dim2(0, PopupWidth, 0, PopupHeight)
@@ -4179,19 +4191,19 @@ function Library:Panel(options)
         if anchorButton and anchorButton.Parent then
             local AnchorAbsPos = anchorButton.AbsolutePosition
             local AnchorAbsSize = anchorButton.AbsoluteSize
-            local AnchorX = AnchorAbsPos.X - MainAbsPos.X
-            local AnchorY = AnchorAbsPos.Y - MainAbsPos.Y
-            local RightX = AnchorX + AnchorAbsSize.X + 8 - 15
+            local AnchorX = (AnchorAbsPos.X - MainAbsPos.X) / _tsoscale
+            local AnchorY = (AnchorAbsPos.Y - MainAbsPos.Y) / _tsoscale
+            local RightX = AnchorX + AnchorAbsSize.X / _tsoscale + 8 - 15
             local LeftX = AnchorX - PopupW - 8 - 15
-            if RightX + PopupW <= MainAbsSize.X - 10 then
+            if RightX + PopupW <= MainAbsSize.X / _tsoscale - 10 then
                 PosX = RightX
             else
                 PosX = LeftX
             end
-            PosY = AnchorY + math.floor((AnchorAbsSize.Y - PopupH) * 0.5) + 60
+            PosY = AnchorY + math.floor((AnchorAbsSize.Y / _tsoscale - PopupH) * 0.5) + 60
         end
-        PosX = math.clamp(PosX, 10, math.max(10, MainAbsSize.X - PopupW - 10))
-        PosY = math.clamp(PosY, 10, math.max(10, MainAbsSize.Y - PopupH - 10))
+        PosX = math.clamp(PosX, 10, math.max(10, MainAbsSize.X / _tsoscale - PopupW - 10))
+        PosY = math.clamp(PosY, 10, math.max(10, MainAbsSize.Y / _tsoscale - PopupH - 10))
         ToggleSubOptionsPopup.Position = Dim2(0, PosX, 0, PosY)
         ToggleSubOptionsPopup.Visible = true
     end
@@ -5678,18 +5690,20 @@ function Library:Panel(options)
         if self.CloseOwnerPresetsPopup then
             self:CloseOwnerPresetsPopup()
         end
+        local _fcpscale = self:GetGuiScale()
         local ap = FolderAddPresetBtn.AbsolutePosition
         local sz = FolderAddPresetBtn.AbsoluteSize
-        local vx = Camera.ViewportSize.X
-        local vy = Camera.ViewportSize.Y
-        local x = ap.X - 260 - 16 - 190 - 30 + 5
+        local vx = Camera.ViewportSize.X / _fcpscale
+        local vy = Camera.ViewportSize.Y / _fcpscale
+        local _ax, _ay, _sw = ap.X / _fcpscale, ap.Y / _fcpscale, sz.X / _fcpscale
+        local x = _ax - 260 - 16 - 190 - 30 + 5
         if x < 4 then
-            x = ap.X + sz.X + 16 - 190 - 30 + 5
+            x = _ax + _sw + 16 - 190 - 30 + 5
         end
         if x + 260 > vx - 4 then
             x = math.max(4, vx - 4 - 260)
         end
-        local y0 = ap.Y + 15 + 75
+        local y0 = _ay + 15 + 75
         FolderCreatePresetWrap.Position = Dim2(0, x, 0, y0)
         FolderCreatePresetMenu.BackgroundTransparency = 1
         FolderCreatePresetNewRow.BackgroundTransparency = 1
@@ -5711,11 +5725,10 @@ function Library:Panel(options)
             if not FolderCreatePresetWrap.Visible then
                 return
             end
-            local h = FolderCreatePresetWrap.AbsoluteSize.Y
-            if h < 1 then
-                h = 1
-            end
-            local vy2 = Camera.ViewportSize.Y
+            local _sc2 = self:GetGuiScale()
+            local h = FolderCreatePresetWrap.AbsoluteSize.Y / _sc2
+            if h < 1 then h = 1 end
+            local vy2 = Camera.ViewportSize.Y / _sc2
             local y = math.clamp(y0, 4, math.max(4, vy2 - h - 4))
             FolderCreatePresetWrap.Position = Dim2(0, x, 0, y)
         end)
@@ -5771,18 +5784,20 @@ function Library:Panel(options)
         if self._SyncOwnerPresetsPopupBounds then
             self._SyncOwnerPresetsPopupBounds()
         end
+        local _opscale = self:GetGuiScale()
         local ap = FolderPresetsPill.AbsolutePosition
         local sz = FolderPresetsPill.AbsoluteSize
-        local vx = Camera.ViewportSize.X
-        local vy = Camera.ViewportSize.Y
-        local x = ap.X - 260 - 16
+        local vx = Camera.ViewportSize.X / _opscale
+        local vy = Camera.ViewportSize.Y / _opscale
+        local _opax, _opay, _opsw = ap.X / _opscale, ap.Y / _opscale, sz.X / _opscale
+        local x = _opax - 260 - 16
         if x < 4 then
-            x = ap.X + sz.X + 16
+            x = _opax + _opsw + 16
         end
         if x + 260 > vx - 4 then
             x = math.max(4, vx - 4 - 260)
         end
-        local y0 = ap.Y + 58
+        local y0 = _opay + 58
         self._OwnerPresetsPopup.Position = Dim2(0, x, 0, y0)
         self._OwnerPresetsPopup.BackgroundTransparency = 1
         if self._OwnerPresetsInner then
@@ -5811,11 +5826,11 @@ function Library:Panel(options)
             if not self._OwnerPresetsPopup.Visible then
                 return
             end
-            local h = self._OwnerPresetsPopup.AbsoluteSize.Y
-            if h < 1 then
-                h = 1
-            end
-            local y = math.clamp(y0, 4, math.max(4, vy - h - 4))
+            local _opsc2 = self:GetGuiScale()
+            local h = self._OwnerPresetsPopup.AbsoluteSize.Y / _opsc2
+            if h < 1 then h = 1 end
+            local _opvy2 = Camera.ViewportSize.Y / _opsc2
+            local y = math.clamp(y0, 4, math.max(4, _opvy2 - h - 4))
             self._OwnerPresetsPopup.Position = Dim2(0, x, 0, y)
         end)
     end
@@ -5941,20 +5956,21 @@ function Library:Panel(options)
         end
         ConfigContextTargetRow = row
         FolderConfigSelect(row)
-        local ap = row.AbsolutePosition
-        local sz = row.AbsoluteSize
-        local vx = Camera.ViewportSize.X
-        local vy = Camera.ViewportSize.Y
-        local x = ap.X - 220 - 16
-        if x < 4 then
-            x = ap.X + sz.X + 16
-        end
-        if x + 220 > vx - 4 then
-            x = math.max(4, vx - 4 - 220)
-        end
-        local y = ap.Y + 15
-        y = math.clamp(y, 4, math.max(4, vy - 108 - 4))
-        ConfigContextWrap.Position = Dim2(0, x, 0, y)
+            local _ccscale = self:GetGuiScale()
+            local ap = row.AbsolutePosition
+            local sz = row.AbsoluteSize
+            local vx = Camera.ViewportSize.X / _ccscale
+            local vy = Camera.ViewportSize.Y / _ccscale
+            local x = ap.X / _ccscale - 220 - 16
+            if x < 4 then
+                x = ap.X / _ccscale + sz.X / _ccscale + 16
+            end
+            if x + 220 > vx - 4 then
+                x = math.max(4, vx - 4 - 220)
+            end
+            local y = ap.Y / _ccscale + 15
+            y = math.clamp(y, 4, math.max(4, vy - 108 - 4))
+            ConfigContextWrap.Position = Dim2(0, x, 0, y)
         ConfigContextMenu.BackgroundTransparency = 1
         ConfigContextWrap.Visible = true
         self:Tween(ConfigContextMenu, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad, 0.1)
@@ -6709,22 +6725,23 @@ function Library:Panel(options)
         if self._RefreshFolderFilterPopupState then
             self._RefreshFolderFilterPopupState()
         end
+        local _ffscale = self:GetGuiScale()
         local ap = self._FolderFilterIconHit.AbsolutePosition
         local sz = self._FolderFilterIconHit.AbsoluteSize
-        local vx = Camera.ViewportSize.X
-        local vy = Camera.ViewportSize.Y
-        local width = self._FolderFilterPopup.AbsoluteSize.X
+        local vx = Camera.ViewportSize.X / _ffscale
+        local vy = Camera.ViewportSize.Y / _ffscale
+        local width = self._FolderFilterPopup.AbsoluteSize.X / _ffscale
         if width < 1 then
             width = 196
         end
-        local x = ap.X + sz.X - width - 275
+        local x = ap.X / _ffscale + sz.X / _ffscale - width - 275
         if x < 4 then
             x = 4
         end
         if x + width > vx - 4 then
             x = math.max(4, vx - 4 - width)
         end
-        local y0 = ap.Y + sz.Y + 21
+        local y0 = ap.Y / _ffscale + sz.Y / _ffscale + 21
         self._FolderFilterPopup.Position = Dim2(0, x, 0, y0)
         self._FolderFilterPopupAnimToken = (self._FolderFilterPopupAnimToken or 0) + 1
         self._FolderFilterPopup.BackgroundTransparency = 1
@@ -6734,11 +6751,11 @@ function Library:Panel(options)
             if not self._FolderFilterPopup.Visible then
                 return
             end
-            local h = self._FolderFilterPopup.AbsoluteSize.Y
-            if h < 1 then
-                h = 1
-            end
-            local y = math.clamp(y0, 4, math.max(4, vy - h - 4))
+            local _ffsc2 = self:GetGuiScale()
+            local h = self._FolderFilterPopup.AbsoluteSize.Y / _ffsc2
+            if h < 1 then h = 1 end
+            local _ffvy2 = Camera.ViewportSize.Y / _ffsc2
+            local y = math.clamp(y0, 4, math.max(4, _ffvy2 - h - 4))
             self._FolderFilterPopup.Position = Dim2(0, x, 0, y)
         end)
     end
@@ -7780,10 +7797,11 @@ function Library:Panel(options)
             return
         end
         CloseStylesPopup("hard")
+        local _wmscale = self:GetGuiScale()
         local rowAp = SettingsWatermarkRow.AbsolutePosition
         local hostAp = content_top.AbsolutePosition
-        local y = math.max(0, rowAp.Y - hostAp.Y - 2)
-        local x = math.max(0, (rowAp.X - hostAp.X) + SettingsWatermarkRow.AbsoluteSize.X + 245)
+        local y = math.max(0, (rowAp.Y - hostAp.Y) / _wmscale - 2)
+        local x = math.max(0, (rowAp.X - hostAp.X) / _wmscale + SettingsWatermarkRow.AbsoluteSize.X / _wmscale + 245)
         WatermarkPopup.Position = Dim2(0, x, 0, y)
         WatermarkPopup.BackgroundTransparency = 1
         WatermarkInner.BackgroundTransparency = 1
@@ -7798,10 +7816,11 @@ function Library:Panel(options)
             return
         end
         CloseWatermarkPopup("hard")
+        local _spscale = self:GetGuiScale()
         local rowAp = SettingsStylesRow.AbsolutePosition
         local hostAp = content_top.AbsolutePosition
-        local y = math.max(0, rowAp.Y - hostAp.Y - 2)
-        local x = math.max(0, (rowAp.X - hostAp.X) + SettingsStylesRow.AbsoluteSize.X + 23)
+        local y = math.max(0, (rowAp.Y - hostAp.Y) / _spscale - 2)
+        local x = math.max(0, (rowAp.X - hostAp.X) / _spscale + SettingsStylesRow.AbsoluteSize.X / _spscale + 23)
         StylesPopup.Position = Dim2(0, x, 0, y)
         StylesPopup.BackgroundTransparency = 1
         StylesInner.BackgroundTransparency = 1
@@ -8132,10 +8151,9 @@ function Library:Panel(options)
         return sectionApi
     end
 
-    -- Floor only while AbsoluteSize is 0 (first frame); real strip is ~padding + 36px bar + row bottom pad.
     ReflowContentBody = function()
         if ContentSubtabsHost.Visible then
-            local h = ContentSubtabsHost.AbsoluteSize.Y
+            local h = ContentSubtabsHost.AbsoluteSize.Y / self:GetGuiScale()
             if h < 1 then
                 h = 50
             end
@@ -8343,16 +8361,17 @@ function Library:Panel(options)
                 if not PillTrack.Parent or not btn.Parent then
                     return
                 end
+                local _slscale = self:GetGuiScale()
                 local ap = btn.AbsolutePosition
                 local as = btn.AbsoluteSize
                 local tp = PillTrack.AbsolutePosition
-                local relX = ap.X - tp.X
-                local TrackH = PillTrack.AbsoluteSize.Y
+                local relX = (ap.X - tp.X) / _slscale
+                local TrackH = PillTrack.AbsoluteSize.Y / _slscale
                 if TrackH < 1 then
                     TrackH = 36
                 end
                 local pos = Dim2(0, relX, 0, 0)
-                local sz = Dim2(0, as.X, 0, TrackH)
+                local sz = Dim2(0, as.X / _slscale, 0, TrackH)
                 if UseTween then
                     TweenService:Create(slider, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                         Position = pos,
