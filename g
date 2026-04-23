@@ -2880,10 +2880,16 @@ function Library:CreateSettingsSection(parent, spec)
                 trackH = winY
             end
             if canvasY <= winY + 1 then
-                ScrollThumb.Visible = false
+                if ScrollThumb.Visible then
+                    LibraryRef:Tween(ScrollThumb, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, 0.18)
+                    task.delay(0.19, function()
+                        if ScrollThumb and ScrollThumb.Parent and ScrollThumb.BackgroundTransparency >= 0.99 then
+                            ScrollThumb.Visible = false
+                        end
+                    end)
+                end
                 return
             end
-            ScrollThumb.Visible = true
             local maxScroll = canvasY - winY
             local scrollY = ListScroll.CanvasPosition.Y
             local thumbH = math.floor((winY / canvasY) * trackH)
@@ -2895,6 +2901,11 @@ function Library:CreateSettingsSection(parent, spec)
             thumbY = math.clamp(thumbY, 0, math.max(0, trackH - thumbH))
             ScrollThumb.Size = Dim2(0, 5, 0, thumbH)
             ScrollThumb.Position = Dim2(0.5, 0, 0, thumbY)
+            if not ScrollThumb.Visible then
+                ScrollThumb.BackgroundTransparency = 1
+                ScrollThumb.Visible = true
+                LibraryRef:Tween(ScrollThumb, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad, 0.18)
+            end
         end
 
         LibraryRef:Connection(ListScroll:GetPropertyChangedSignal("CanvasPosition"), UpdateDropdownScrollThumb)
@@ -2946,7 +2957,7 @@ function Library:CreateSettingsSection(parent, spec)
 
         local function CloseDropdown(instant)
             instant = instant == true
-            DropdownOpenAnimating = true
+            ScrollThumb.BackgroundTransparency = 1
             ScrollThumb.Visible = false
             CancelDropdownAnimTween()
             if not DropdownPopup.Visible then
