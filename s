@@ -618,54 +618,43 @@ function Library:MakeDraggable(frame, excludeFromDrag)
         end
         local ap = UiObject.AbsolutePosition
         local as = UiObject.AbsoluteSize
-        return PointerPosition.X >= ap.X and PointerPosition.X <= ap.X + as.X and PointerPosition.Y >= ap.Y and PointerPosition.Y <= ap.Y + as.Y
+        return PointerPosition.X >= ap.X and PointerPosition.X <= ap.X + as.X
+            and PointerPosition.Y >= ap.Y and PointerPosition.Y <= ap.Y + as.Y
     end
 
     self:Connection(frame.InputBegan, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local PointerPosition = input.Position or UserInputService:GetMouseLocation()
-            for _, ex in ipairs(excludeFromDrag) do
-                if IsPointerOver(ex, PointerPosition) then
-                    return
-                end
-            end
-            dragging = true
-            start = input.Position
-            StartPos = frame.Position
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+        and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        local PointerPosition = input.Position
+        for _, ex in ipairs(excludeFromDrag) do
+            if IsPointerOver(ex, PointerPosition) then return end
         end
+        dragging = true
+        start = input.Position
+        StartPos = frame.Position
     end)
 
-    self:Connection(frame.InputEnded, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    self:Connection(UserInputService.InputEnded, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
             start = nil
         end
     end)
 
-    self:Connection(UserInputService.InputChanged, function(input, _game_processed)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and start then
-            local vx = Camera.ViewportSize.X
-            local vy = Camera.ViewportSize.Y
-            local fw = frame.Size.X.Offset
-            local fh = frame.Size.Y.Offset
-
-            local NextPos = Dim2(
-                0,
-                math.clamp(
-                    StartPos.X.Offset + (input.Position.X - start.X),
-                    0,
-                    vx - fw
-                ),
-                0,
-                math.clamp(
-                    StartPos.Y.Offset + (input.Position.Y - start.Y),
-                    0,
-                    vy - fh
-                )
-            )
-
-            self:EaseTo(frame, { Position = NextPos }, Enum.EasingStyle.Linear, 0.05)
-        end
+    self:Connection(UserInputService.InputChanged, function(input)
+        if not dragging or not start then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        local vx = Camera.ViewportSize.X
+        local vy = Camera.ViewportSize.Y
+        local fw = frame.Size.X.Offset
+        local fh = frame.Size.Y.Offset
+        local NextPos = Dim2(
+            0, math.clamp(StartPos.X.Offset + (input.Position.X - start.X), 0, vx - fw),
+            0, math.clamp(StartPos.Y.Offset + (input.Position.Y - start.Y), 0, vy - fh)
+        )
+        self:EaseTo(frame, { Position = NextPos }, Enum.EasingStyle.Linear, 0.05)
     end)
 end
 
@@ -7260,6 +7249,7 @@ function Library:Panel(options)
         ZIndex = 160,
         Active = true,
         Visible = WatermarkEnabled,
+        ClipsDescendants = true,
     })
     self:CreateInstance("UICorner", {
         Parent = WatermarkCard,
@@ -7371,7 +7361,7 @@ function Library:Panel(options)
             local InfoWidth = math.max(0, WatermarkInfo.TextBounds.X)
             WatermarkTitle.Position = Dim2(0, BaseX, 0, 0)
             WatermarkInfo.Position = Dim2(0, BaseX + TitleWidth + Gap, 0, 0)
-            local Width = math.max(210, math.floor(BaseX + TitleWidth + Gap + InfoWidth + 12))
+            local Width = math.max(210, math.floor(BaseX + TitleWidth + Gap + InfoWidth + 32))
             WatermarkCard.Size = Dim2(0, Width, 0, 44)
         end)
     end
