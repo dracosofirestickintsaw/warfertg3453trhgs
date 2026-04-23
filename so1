@@ -3869,7 +3869,7 @@ function Library:Panel(options)
 
     if IsMobile then
         local scale = Instance.new("UIScale")
-        scale.Scale = 0.65
+        scale.Scale = 0.42
         scale.Parent = screen
     end
 
