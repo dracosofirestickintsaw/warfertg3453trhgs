@@ -2954,6 +2954,7 @@ function Library:CreateSettingsSection(parent, spec)
             end
             local function finishClose()
                 DropdownPopup.Visible = false
+                LibraryRef:Tween(DropdownIcon, { Rotation = 0 }, Enum.EasingStyle.Quad, 0.14)
                 if Library._DropdownClose == CloseDropdown then
                     Library._DropdownClose = nil
                 end
@@ -3065,19 +3066,18 @@ function Library:CreateSettingsSection(parent, spec)
                     ZIndex = 102,
                 })
 
-                local Check = LibraryRef:CreateInstance("ImageLabel", {
-                    Parent = Btn,
-                    Name = "check",
+                local DropdownIcon = LibraryRef:CreateInstance("ImageLabel", {
+                    Parent = FieldInner,
+                    Name = "dropdown_icon",
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
-                    Position = Dim2(0, 0, 0.5, 0),
-                    AnchorPoint = Vector2.new(0, 0.5),
-                    Size = Dim2(0, 18, 0, 18),
-                    Image = "rbxassetid://71724879216117",
+                    Position = Dim2(1, 0, 0.5, 0),
+                    AnchorPoint = Vector2.new(1, 0.5),
+                    Size = Dim2(0, 10, 0, 10),
+                    Image = "rbxassetid://97393699067510",
                     ImageColor3 = Rgb(255, 255, 255),
                     ScaleType = Enum.ScaleType.Fit,
-                    Visible = Multi and (SelectedIndices[i] == true) or (not Multi and i == SelectedIndex),
-                    ZIndex = 103,
+                    ZIndex = 13,
                 })
 
                 local TextLbl = LibraryRef:CreateInstance("TextLabel", {
@@ -3176,6 +3176,7 @@ function Library:CreateSettingsSection(parent, spec)
             DropdownPopup.Size = Dim2(0, w, 0, 0)
             DropdownPopup.Position = Dim2(0, ap.X / _ddopenscale, 0, (ap.Y + as.Y) / _ddopenscale + 6)
             DropdownPopup.Visible = true
+            LibraryRef:Tween(DropdownIcon, { Rotation = 180 }, Enum.EasingStyle.Quad, 0.18)
             Library._DropdownClose = CloseDropdown
 
             if posConn then
