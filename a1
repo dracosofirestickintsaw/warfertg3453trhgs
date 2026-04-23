@@ -2957,7 +2957,6 @@ function Library:CreateSettingsSection(parent, spec)
 
         local function CloseDropdown(instant)
             instant = instant == true
-            DropdownOpenAnimating = false
             ScrollThumb.BackgroundTransparency = 1
             ScrollThumb.Visible = false
             CancelDropdownAnimTween()
