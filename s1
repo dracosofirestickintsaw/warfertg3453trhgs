@@ -611,6 +611,17 @@ function Library:MakeDraggable(frame, excludeFromDrag)
     local dragging = false
     local StartPos = frame.Position
     local start = nil
+    local cachedScale = 1
+
+    local function GetScale()
+        local inst = frame
+        while inst do
+            local s = inst:FindFirstChildOfClass("UIScale")
+            if s then return s.Scale end
+            inst = inst.Parent
+        end
+        return 1
+    end
 
     local function IsPointerOver(UiObject, PointerPosition)
         if not (typeof(UiObject) == "Instance" and UiObject.Parent and PointerPosition) then
@@ -625,10 +636,11 @@ function Library:MakeDraggable(frame, excludeFromDrag)
     self:Connection(frame.InputBegan, function(input)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1
         and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        local PointerPosition = input.Position
+        local pos = input.Position
         for _, ex in ipairs(excludeFromDrag) do
-            if IsPointerOver(ex, PointerPosition) then return end
+            if IsPointerOver(ex, pos) then return end
         end
+        cachedScale = GetScale()
         dragging = true
         start = input.Position
         StartPos = frame.Position
@@ -646,13 +658,18 @@ function Library:MakeDraggable(frame, excludeFromDrag)
         if not dragging or not start then return end
         if input.UserInputType ~= Enum.UserInputType.MouseMovement
         and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        local vx = Camera.ViewportSize.X
-        local vy = Camera.ViewportSize.Y
+
+        local s = cachedScale
+        local vx = Camera.ViewportSize.X / s
+        local vy = Camera.ViewportSize.Y / s
         local fw = frame.Size.X.Offset
         local fh = frame.Size.Y.Offset
+        local dx = (input.Position.X - start.X) / s
+        local dy = (input.Position.Y - start.Y) / s
+
         local NextPos = Dim2(
-            0, math.clamp(StartPos.X.Offset + (input.Position.X - start.X), 0, vx - fw),
-            0, math.clamp(StartPos.Y.Offset + (input.Position.Y - start.Y), 0, vy - fh)
+            0, math.clamp(StartPos.X.Offset + dx, 0, vx - fw),
+            0, math.clamp(StartPos.Y.Offset + dy, 0, vy - fh)
         )
         self:EaseTo(frame, { Position = NextPos }, Enum.EasingStyle.Linear, 0.05)
     end)
@@ -8458,7 +8475,12 @@ function Library:Panel(options)
     task.defer(function()
         task.wait()
         if main and main.Parent then
-            main.Position = Dim2(0, main.AbsolutePosition.X, 0, main.AbsolutePosition.Y)
+            local uiScale = 1
+            local scaleObj = screen:FindFirstChildOfClass("UIScale")
+            if scaleObj then uiScale = scaleObj.Scale end
+            local ap = main.AbsolutePosition
+            main.AnchorPoint = Vector2.new(0, 0)
+            main.Position = Dim2(0, ap.X / uiScale, 0, ap.Y / uiScale)
         end
     end)
 
