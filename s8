@@ -2928,7 +2928,7 @@ function Library:CreateSettingsSection(parent, spec)
             local as = Field.AbsoluteSize
             local w = as.X / _ddscale
             local h = DropdownPopup.Size.Y.Offset
-            DropdownPopup.Position = Dim2(0, ap.X / _ddscale, 0, (ap.Y + as.Y) / _ddscale + 40)
+            DropdownPopup.Position = Dim2(0, ap.X / _ddscale, 0, (ap.Y + as.Y) / _ddscale + 60)
             DropdownPopup.Size = Dim2(0, w, 0, h)
         end
 
