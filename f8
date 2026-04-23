@@ -2946,6 +2946,8 @@ function Library:CreateSettingsSection(parent, spec)
 
         local function CloseDropdown(instant)
             instant = instant == true
+            DropdownOpenAnimating = true
+            ScrollThumb.Visible = false
             CancelDropdownAnimTween()
             if not DropdownPopup.Visible then
                 if Library._DropdownClose == CloseDropdown then
@@ -2963,6 +2965,7 @@ function Library:CreateSettingsSection(parent, spec)
             end
             local function finishClose()
                 DropdownPopup.Visible = false
+                DropdownOpenAnimating = false
                 if DropdownIcon and DropdownIcon.Parent then
                     LibraryRef:Tween(DropdownIcon, { Rotation = 90 }, Enum.EasingStyle.Quad, 0.14)
                 end
@@ -2989,6 +2992,7 @@ function Library:CreateSettingsSection(parent, spec)
             closeTweenConn = DropdownAnimTween.Completed:Connect(function()
                 closeTweenConn:Disconnect()
                 DropdownAnimTween = nil
+                DropdownOpenAnimating = false
                 if not DropdownPopup.Visible then
                     return
                 end
