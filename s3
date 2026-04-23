@@ -2543,16 +2543,8 @@ function Library:CreateSettingsSection(parent, spec)
 
         local DisplayMaxChars = Opt.display_max_chars or Opt.displayMaxChars or 11
         local function EllipsizeDisplay(s)
-            if s == nil or s == "" then
-                return s
-            end
-            if DisplayMaxChars <= 0 then
-                return s
-            end
-            if #s <= DisplayMaxChars then
-                return s
-            end
-            return s:sub(1, DisplayMaxChars) .. "..."
+            if s == nil then return "" end
+            return tostring(s)
         end
 
         local Multi = Opt.Multi == true or Opt.multi == true
@@ -2749,12 +2741,12 @@ function Library:CreateSettingsSection(parent, spec)
             BorderSizePixel = 0,
             Position = Dim2(0, 0, 0.5, 0),
             AnchorPoint = Vector2.new(0, 0.5),
-            Size = Dim2(1, -32, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
+            Size = Dim2(1, -26, 0, 24),
             FontFace = LibraryRef.Fonts.Inter,
             Text = JoinSelectedDisplay(),
             TextColor3 = Rgb(255, 255, 255),
             TextSize = 14,
+            TextScaled = true,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.None,
             ZIndex = 13,
@@ -3219,11 +3211,15 @@ function Library:CreateSettingsSection(parent, spec)
             if not DropdownPopup.Visible then
                 return
             end
-            task.defer(function()
+        task.defer(function()
                 if not DropdownPopup.Visible then
                     return
                 end
-                if LibraryRef:Hovering(DropdownPopup) or LibraryRef:Hovering(FieldHit) then
+                if LibraryRef:Hovering(FieldHit) then
+                    CloseDropdown()
+                    return
+                end
+                if LibraryRef:Hovering(DropdownPopup) then
                     return
                 end
                 if LibraryRef._PointerOverConfigContextMenu and LibraryRef._PointerOverConfigContextMenu() then
@@ -7365,7 +7361,7 @@ function Library:Panel(options)
     end
 
     local function RefreshWatermarkText()
-        local TitleText = WatermarkPartsEnabled.CheatName and "Lunaris Hub" or ""
+        local TitleText = (WatermarkPartsEnabled.CheatName and not IsMobile) and "Lunaris Hub" or ""
         local Parts = {}
         if WatermarkPartsEnabled.Lobby then
             Insert(Parts, WatermarkGameName)
