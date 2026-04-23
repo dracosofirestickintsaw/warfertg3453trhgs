@@ -2752,7 +2752,7 @@ function Library:CreateSettingsSection(parent, spec)
             ZIndex = 13,
         })
 
-        LibraryRef:CreateInstance("ImageLabel", {
+        local DropdownIcon = LibraryRef:CreateInstance("ImageLabel", {
             Parent = FieldInner,
             Name = "dropdown_icon",
             BackgroundTransparency = 1,
@@ -3068,18 +3068,19 @@ function Library:CreateSettingsSection(parent, spec)
                     ZIndex = 102,
                 })
 
-                local DropdownIcon = LibraryRef:CreateInstance("ImageLabel", {
-                    Parent = FieldInner,
-                    Name = "dropdown_icon",
+                local Check = LibraryRef:CreateInstance("ImageLabel", {
+                    Parent = Btn,
+                    Name = "check",
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
-                    Position = Dim2(1, 0, 0.5, 0),
-                    AnchorPoint = Vector2.new(1, 0.5),
-                    Size = Dim2(0, 10, 0, 10),
-                    Image = "rbxassetid://97393699067510",
+                    Position = Dim2(0, 0, 0.5, 0),
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    Size = Dim2(0, 18, 0, 18),
+                    Image = "rbxassetid://71724879216117",
                     ImageColor3 = Rgb(255, 255, 255),
                     ScaleType = Enum.ScaleType.Fit,
-                    ZIndex = 13,
+                    Visible = Multi and (SelectedIndices[i] == true) or (not Multi and i == SelectedIndex),
+                    ZIndex = 103,
                 })
 
                 local TextLbl = LibraryRef:CreateInstance("TextLabel", {
