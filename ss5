@@ -8512,14 +8512,37 @@ function Library:Panel(options)
 
         for i, btn in ipairs(SubtabBtns) do
             self:Connection(btn.MouseButton1Click, function()
+                local overlay = ContentBody:FindFirstChild("tab_fade_overlay")
+                if overlay then
+                    overlay.Visible = true
+                    overlay.BackgroundTransparency = 0
+                end
+
                 if TabContentInfo and TabContentInfo.SubtabPanes then
-                    TabContentInfo.ActiveSubtab = i
                     for j, pane in ipairs(TabContentInfo.SubtabPanes) do
-                        pane.Visible = j == i
+                        pane.Visible = false
+                    end
+                    TabContentInfo.ActiveSubtab = i
+                    local newPane = TabContentInfo.SubtabPanes[i]
+                    if newPane then
+                        newPane.Position = Dim2(0, 0, 0, 18)
+                        newPane.Visible = true
+                        Library:Tween(newPane, { Position = Dim2(0, 0, 0, 0) }, Enum.EasingStyle.Quart, 0.35)
                     end
                 end
+
                 ApplySubtabStyle(i)
                 MoveSliderTo(btn, true)
+
+                if overlay then
+                    Library:Tween(overlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, 0.3)
+                    task.delay(0.31, function()
+                        if overlay and overlay.Parent then
+                            overlay.Visible = false
+                        end
+                    end)
+                end
+
                 if self._ApplyContentSearchFilter then
                     self._ApplyContentSearchFilter()
                 end
