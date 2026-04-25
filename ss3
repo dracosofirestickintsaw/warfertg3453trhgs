@@ -2091,7 +2091,6 @@ function Library:CreateSettingsSection(parent, spec)
             return SubOptionsApi
         end
 
-        -- Chained after AddToggle. Pass opts (see MountColorpicker comment). Exposes setColor / getColor / colorFlag on this table.
         function ToggleOut.AddColorpicker(_, opts)
             opts = typeof(opts) == "table" and opts or {}
             if opts.name == nil and opts.title == nil and opts.Name == nil and opts.titleText == nil and opts.Title == nil then
@@ -2294,7 +2293,6 @@ function Library:CreateSettingsSection(parent, spec)
             ZIndex = 10,
         })
 
-        -- Manual X layout (no UIListLayout): flex layouts can still resize children in some runtimes.
         local ValueLabel = LibraryRef:CreateInstance("TextLabel", {
             Parent = RightWrap,
             Name = "slider_value",
@@ -3072,7 +3070,6 @@ function Library:CreateSettingsSection(parent, spec)
                 end
             end)
         end
--- search bar
         local function BuildOptions()
             for _, child in ipairs(ListScroll:GetChildren()) do
                 if child:IsA("TextButton") and child.Name:sub(1, 16) == "dropdown_option_" then
@@ -3775,8 +3772,6 @@ function Library:CreateSettingsSection(parent, spec)
         }
     end
 
-    -- Single: Section:Button({ Name, Callback }) â€” same as AddButton, returns { row, button, dividerSlot }.
-    -- Pair: same call then :SubButton({...}) replaces that row with AddMultiButton (left = first, right = second).
     function SectionApi:Button(nameOrOptions, callbackArg)
         local section = self
 
@@ -3897,7 +3892,6 @@ function Library:Panel(options)
     local SidebarTitleText = options.SidebarTitle or options.sidebar_title or options.title or "OPTIMUM SOLUTIONS"
     local DefaultTabIcon = options.TabIcon or options.tab_icon or "rbxassetid://88390933415082"
     local TabDefinitions = options.Tabs or options.tabs
-    -- Search bar: defaults to Inter + 12px; pass SearchFontFace / SearchTextSize to override.
     local SearchFontFace = options.SearchFontFace or options.search_font_face
     if SearchFontFace == nil then
         SearchFontFace = self.Fonts.Inter
@@ -4009,7 +4003,6 @@ function Library:Panel(options)
         CornerRadius = Dim(0, 16),
     })
 
-    -- Same layout as ColorpickerDim: full main overlay, rounded to match the panel.
     local FolderDim = self:CreateInstance("Frame", {
         Parent = main,
         Name = "folder_dim_overlay",
@@ -5292,7 +5285,6 @@ function Library:Panel(options)
         ZIndex = 57,
     })
 
-    -- Above FolderScroll ZIndex: scroll has higher LayoutOrder and would otherwise draw on top and eat clicks on the bottom config row.
     local FolderFolderMid = self:CreateInstance("Frame", {
         Parent = FolderInner,
         Name = "folder_mid_section",
