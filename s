@@ -2763,6 +2763,7 @@ function Library:CreateSettingsSection(parent, spec)
             Image = "rbxassetid://97393699067510",
             ImageColor3 = Rgb(255, 255, 255),
             ScaleType = Enum.ScaleType.Fit,
+            Rotation = 90,
             ZIndex = 13,
         })
 
@@ -2861,8 +2862,12 @@ function Library:CreateSettingsSection(parent, spec)
             CornerRadius = Dim(0, math.max(1, math.floor(5 / 2))),
         })
 
+        local DropdownOpenAnimating = false
         local function UpdateDropdownScrollThumb()
             if not DropdownPopup.Visible then
+                return
+            end
+            if DropdownOpenAnimating then
                 return
             end
             local winY = ListScroll.AbsoluteWindowSize.Y
@@ -2875,10 +2880,16 @@ function Library:CreateSettingsSection(parent, spec)
                 trackH = winY
             end
             if canvasY <= winY + 1 then
-                ScrollThumb.Visible = false
+                if ScrollThumb.Visible then
+                    LibraryRef:Tween(ScrollThumb, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, 0.18)
+                    task.delay(0.19, function()
+                        if ScrollThumb and ScrollThumb.Parent and ScrollThumb.BackgroundTransparency >= 0.99 then
+                            ScrollThumb.Visible = false
+                        end
+                    end)
+                end
                 return
             end
-            ScrollThumb.Visible = true
             local maxScroll = canvasY - winY
             local scrollY = ListScroll.CanvasPosition.Y
             local thumbH = math.floor((winY / canvasY) * trackH)
@@ -2890,6 +2901,11 @@ function Library:CreateSettingsSection(parent, spec)
             thumbY = math.clamp(thumbY, 0, math.max(0, trackH - thumbH))
             ScrollThumb.Size = Dim2(0, 5, 0, thumbH)
             ScrollThumb.Position = Dim2(0.5, 0, 0, thumbY)
+            if not ScrollThumb.Visible then
+                ScrollThumb.BackgroundTransparency = 1
+                ScrollThumb.Visible = true
+                LibraryRef:Tween(ScrollThumb, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad, 0.18)
+            end
         end
 
         LibraryRef:Connection(ListScroll:GetPropertyChangedSignal("CanvasPosition"), UpdateDropdownScrollThumb)
@@ -2909,6 +2925,10 @@ function Library:CreateSettingsSection(parent, spec)
                     else
                         row.check.Visible = (i == SelectedIndex)
                     end
+                end
+                if row.label then
+                    local isSelected = Multi and SelectedIndices[i] == true or (not Multi and i == SelectedIndex)
+                    row.label.TextColor3 = isSelected and Rgb(255, 255, 255) or Rgb(99, 99, 115)
                 end
             end
         end
@@ -2937,6 +2957,8 @@ function Library:CreateSettingsSection(parent, spec)
 
         local function CloseDropdown(instant)
             instant = instant == true
+            ScrollThumb.BackgroundTransparency = 1
+            ScrollThumb.Visible = false
             CancelDropdownAnimTween()
             if not DropdownPopup.Visible then
                 if Library._DropdownClose == CloseDropdown then
@@ -2954,6 +2976,7 @@ function Library:CreateSettingsSection(parent, spec)
             end
             local function finishClose()
                 DropdownPopup.Visible = false
+                DropdownOpenAnimating = false
                 if DropdownIcon and DropdownIcon.Parent then
                     LibraryRef:Tween(DropdownIcon, { Rotation = 90 }, Enum.EasingStyle.Quad, 0.14)
                 end
@@ -2980,6 +3003,7 @@ function Library:CreateSettingsSection(parent, spec)
             closeTweenConn = DropdownAnimTween.Completed:Connect(function()
                 closeTweenConn:Disconnect()
                 DropdownAnimTween = nil
+                DropdownOpenAnimating = false
                 if not DropdownPopup.Visible then
                     return
                 end
@@ -3092,15 +3116,15 @@ function Library:CreateSettingsSection(parent, spec)
                     Size = Dim2(1, -24, 1, 0),
                     FontFace = LibraryRef.Fonts.Inter,
                     Text = EllipsizeDisplay(label),
-                    TextColor3 = Rgb(255, 255, 255),
-                    TextSize = 12,
+                    TextColor3 = Rgb(99, 99, 115),
+                    TextSize = 14,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     TextYAlignment = Enum.TextYAlignment.Center,
                     TextTruncate = Enum.TextTruncate.None,
                     ZIndex = 103,
                 })
 
-                Insert(OptionRows, { button = Btn, check = Check })
+                Insert(OptionRows, { button = Btn, check = Check, label = TextLbl })
 
                 LibraryRef:Connection(Btn.MouseButton1Click, function()
                     if Multi then
@@ -3176,8 +3200,10 @@ function Library:CreateSettingsSection(parent, spec)
             local as = Field.AbsoluteSize
             local w = as.X / _ddopenscale
             CancelDropdownAnimTween()
+            DropdownOpenAnimating = true
             DropdownPopup.Size = Dim2(0, w, 0, 0)
             DropdownPopup.Position = Dim2(0, ap.X / _ddopenscale, 0, (ap.Y + as.Y) / _ddopenscale + 6)
+            ScrollThumb.Visible = false
             DropdownPopup.Visible = true
             if DropdownIcon and DropdownIcon.Parent then
                 LibraryRef:Tween(DropdownIcon, { Rotation = 0 }, Enum.EasingStyle.Quad, 0.18)
@@ -3198,6 +3224,8 @@ function Library:CreateSettingsSection(parent, spec)
             openTweenConn = DropdownAnimTween.Completed:Connect(function()
                 openTweenConn:Disconnect()
                 DropdownAnimTween = nil
+                DropdownOpenAnimating = false
+                UpdateDropdownScrollThumb()
             end)
             DropdownAnimTween:Play()
             task.defer(SyncDropdownPosition)
@@ -8522,6 +8550,35 @@ function Library:Panel(options)
     end
 
     self:FinalizeWindowSetup()
+
+    game:GetService("Players").LocalPlayer.AncestryChanged:Connect(function()
+        if Library and Library.GetConfig then
+            local path = Library.Directory .. "/configs/autoload.cfg"
+            Library:EnsureDataFolders()
+            writefile(path, Library:GetConfig())
+        end
+    end)
+
+    game:GetService("Players").LocalPlayer.CharacterRemoving:Connect(function()
+        if Library and Library.GetConfig then
+            writefile(Library.Directory .. "/configs/autoload.cfg", Library:GetConfig())
+        end
+    end)
+
+    task.defer(function()
+        task.wait()
+        local path = Library.Directory .. "/configs/autoload.cfg"
+        if isfile(path) then
+            local data = readfile(path)
+            if data and data ~= "" and data ~= "{}" then
+                Library:LoadConfig(data)
+                Library.ActiveConfigName = "autoload"
+                if Library._RefreshFolderConfigRows then
+                    Library._RefreshFolderConfigRows()
+                end
+            end
+        end
+    end)
 
     return {
         Screen = screen,
