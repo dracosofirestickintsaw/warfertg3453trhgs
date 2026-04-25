@@ -4505,11 +4505,26 @@ function Library:Panel(options)
             end
             local TabContentInfo = TabContentPanels[i]
             if TabContentInfo and TabContentInfo.Panel then
-                TabContentInfo.Panel.Visible = on
-                if on and TabContentInfo.SubtabPanes then
-                    local j = TabContentInfo.ActiveSubtab or 1
-                    for sj, pane in ipairs(TabContentInfo.SubtabPanes) do
-                        pane.Visible = sj == j
+                if on then
+                    TabContentInfo.Panel.Position = Dim2(0, 0, 0, 18)
+                    TabContentInfo.Panel.Visible = true
+                    Library:Tween(TabContentInfo.Panel, { Position = Dim2(0, 0, 0, 0) }, Enum.EasingStyle.Quart, 0.3)
+                    if TabContentInfo.SubtabPanes then
+                        local j = TabContentInfo.ActiveSubtab or 1
+                        for sj, pane in ipairs(TabContentInfo.SubtabPanes) do
+                            pane.Visible = sj == j
+                        end
+                    end
+                else
+                    if TabContentInfo.Panel.Visible then
+                        Library:Tween(TabContentInfo.Panel, { Position = Dim2(0, 0, 0, 10) }, Enum.EasingStyle.Quart, 0.2)
+                        local capturedIndex = i
+                        task.delay(0.2, function()
+                            if ActiveTabIndex ~= capturedIndex then
+                                TabContentInfo.Panel.Visible = false
+                                TabContentInfo.Panel.Position = Dim2(0, 0, 0, 0)
+                            end
+                        end)
                     end
                 end
             end
