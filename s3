@@ -4577,19 +4577,21 @@ function Library:Panel(options)
             Name = "sidebar_tab_divider_row",
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            Size = Dim2(1, 0, 0, 1),
+            Size = Dim2(1, 0, 0, 17),
             LayoutOrder = NextSidebarLayoutOrder(),
         })
 
         self:CreateInstance("Frame", {
             Parent = DividerRow,
             Name = "sidebar_tab_divider",
-            BackgroundColor3 = Palette.Swatches.sidebar,
+            BackgroundColor3 = Rgb(55, 55, 66),
             BorderSizePixel = 0,
-            Size = Dim2(1, 22, 0, 1),
-            Position = Dim2(0.5, 0, 0, 0),
-            AnchorPoint = Vector2.new(0.5, 0),
+            Size = Dim2(1, -22, 0, 1),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = Dim2(0.5, 0, 0.5, 0),
         })
+        
+        self:BindSwatchProperty(dividerLine, "BackgroundColor3", "control")
 
         SidebarTabStack.Visible = true
         ResizeMainToFitSidebar()
@@ -8550,37 +8552,6 @@ function Library:Panel(options)
     end
 
     self:FinalizeWindowSetup()
-
-    game:GetService("Players").LocalPlayer.AncestryChanged:Connect(function()
-        if Library and Library.GetConfig then
-            local path = Library.Directory .. "/configs/autoload.cfg"
-            Library:EnsureDataFolders()
-            writefile(path, Library:GetConfig())
-        end
-    end)
-
-    game:GetService("Players").LocalPlayer.AncestryChanged:Connect(function()
-        if Library and Library.ActiveConfigName and Library.ActiveConfigName ~= "" then
-            Library:EnsureDataFolders()
-            writefile(Library.Directory .. "/lastconfig.txt", Library.ActiveConfigName)
-        end
-    end)
-
-    task.defer(function()
-        task.wait()
-        local namePath = Library.Directory .. "/lastconfig.txt"
-        if isfile(namePath) then
-            local stem = readfile(namePath):gsub("%s+", "")
-            local cfgPath = Library.Directory .. "/configs/" .. stem .. ".cfg"
-            if stem ~= "" and isfile(cfgPath) then
-                Library:LoadConfig(readfile(cfgPath))
-                Library.ActiveConfigName = stem
-                if Library._RefreshFolderConfigRows then
-                    Library._RefreshFolderConfigRows()
-                end
-            end
-        end
-    end)
 
     return {
         Screen = screen,
