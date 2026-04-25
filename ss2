@@ -4496,13 +4496,16 @@ function Library:Panel(options)
         if overlay then
             overlay.Visible = true
             overlay.BackgroundTransparency = 0
-            Library:Tween(overlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, 0.35)
-            task.delay(0.36, function()
-                if overlay and overlay.Parent then
-                    overlay.Visible = false
-                end
-            end)
         end
+
+        -- hide all panels instantly while overlay covers everything
+        for i, data in ipairs(TabContentPanels) do
+            if data and data.Panel then
+                data.Panel.Visible = false
+            end
+        end
+
+        -- apply tab button styles
         for i, row in ipairs(TabButtons) do
             local on = i == index
             row.BackgroundColor3 = Palette.Swatches.tab_active
@@ -4515,52 +4518,34 @@ function Library:Panel(options)
             if IconLabel then
                 IconLabel.ImageColor3 = on and Rgb(213, 213, 214) or Rgb(152, 152, 172)
             end
-            local TabContentInfo = TabContentPanels[i]
-            if TabContentInfo and TabContentInfo.Panel then
-                if on then
-                    TabContentInfo.Panel.GroupTransparency = 1
-                    TabContentInfo.Panel.Position = Dim2(0, 0, 0, 18)
-                    TabContentInfo.Panel.Visible = true
-                    Library:Tween(TabContentInfo.Panel, {
-                        GroupTransparency = 0,
-                        Position = Dim2(0, 0, 0, 0)
-                    }, Enum.EasingStyle.Quart, 0.3)
-                    if TabContentInfo.SubtabPanes then
-                        local j = TabContentInfo.ActiveSubtab or 1
-                        for sj, pane in ipairs(TabContentInfo.SubtabPanes) do
-                            pane.Visible = sj == j
-                        end
-                    end
-                else
-                    if TabContentInfo.Panel.Visible then
-                        local capturedIndex = i
-                        Library:Tween(TabContentInfo.Panel, {
-                            GroupTransparency = 1,
-                            Position = Dim2(0, 0, 0, 10)
-                        }, Enum.EasingStyle.Quart, 0.2)
-                        task.delay(0.22, function()
-                            if ActiveTabIndex ~= capturedIndex then
-                                TabContentInfo.Panel.Visible = false
-                                TabContentInfo.Panel.GroupTransparency = 0
-                                TabContentInfo.Panel.Position = Dim2(0, 0, 0, 0)
-                            end
-                        end)
-                    end
+        end
+
+        -- show only the new panel
+        local newInfo = TabContentPanels[index]
+        if newInfo and newInfo.Panel then
+            newInfo.Panel.Visible = true
+            if newInfo.SubtabPanes then
+                local j = newInfo.ActiveSubtab or 1
+                for sj, pane in ipairs(newInfo.SubtabPanes) do
+                    pane.Visible = sj == j
                 end
             end
         end
-        if SyncSubtabsVisibility then
-            SyncSubtabsVisibility()
+
+        -- now fade the overlay away to reveal the new tab cleanly
+        if overlay then
+            Library:Tween(overlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, 0.3)
+            task.delay(0.31, function()
+                if overlay and overlay.Parent then
+                    overlay.Visible = false
+                end
+            end)
         end
-        if CloseFolderPopup then
-            CloseFolderPopup()
-        end
-        if CloseSettingsPopup then
-            CloseSettingsPopup()
-        end
-        if self._ApplyContentSearchFilter then
-            self._ApplyContentSearchFilter()
-        end
+
+        if SyncSubtabsVisibility then SyncSubtabsVisibility() end
+        if CloseFolderPopup then CloseFolderPopup() end
+        if CloseSettingsPopup then CloseSettingsPopup() end
+        if self._ApplyContentSearchFilter then self._ApplyContentSearchFilter() end
     end
 
     local function ResolveTabIcon(icon)
