@@ -4590,7 +4590,7 @@ function Library:Panel(options)
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = Dim2(0.5, 0, 0.5, 0),
         })
-        
+
         self:BindSwatchProperty(dividerLine, "BackgroundColor3", "control")
 
         SidebarTabStack.Visible = true
@@ -4628,7 +4628,7 @@ function Library:Panel(options)
             Parent = SidebarTabStack,
             Name = "\0",
             AutoButtonColor = false,
-            Size = Dim2(0, SidebarWidth - 22, 0, 44),
+            Size = Dim2(0, SidebarWidth - 22, 0, 40),
             BackgroundColor3 = Palette.Swatches.tab_active,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
