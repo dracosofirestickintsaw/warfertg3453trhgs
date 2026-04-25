@@ -4505,10 +4505,17 @@ function Library:Panel(options)
             end
             local TabContentInfo = TabContentPanels[i]
             if TabContentInfo and TabContentInfo.Panel then
+                local FadeOverlay = TabContentInfo.Panel:FindFirstChild("tab_fade_overlay")
                 if on then
+                    if FadeOverlay then
+                        FadeOverlay.BackgroundTransparency = 0
+                    end
                     TabContentInfo.Panel.Position = Dim2(0, 0, 0, 18)
                     TabContentInfo.Panel.Visible = true
                     Library:Tween(TabContentInfo.Panel, { Position = Dim2(0, 0, 0, 0) }, Enum.EasingStyle.Quart, 0.3)
+                    if FadeOverlay then
+                        Library:Tween(FadeOverlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, 0.3)
+                    end
                     if TabContentInfo.SubtabPanes then
                         local j = TabContentInfo.ActiveSubtab or 1
                         for sj, pane in ipairs(TabContentInfo.SubtabPanes) do
@@ -4517,12 +4524,19 @@ function Library:Panel(options)
                     end
                 else
                     if TabContentInfo.Panel.Visible then
+                        if FadeOverlay then
+                            FadeOverlay.BackgroundTransparency = 1
+                            Library:Tween(FadeOverlay, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quart, 0.2)
+                        end
                         Library:Tween(TabContentInfo.Panel, { Position = Dim2(0, 0, 0, 10) }, Enum.EasingStyle.Quart, 0.2)
                         local capturedIndex = i
-                        task.delay(0.2, function()
+                        task.delay(0.22, function()
                             if ActiveTabIndex ~= capturedIndex then
                                 TabContentInfo.Panel.Visible = false
                                 TabContentInfo.Panel.Position = Dim2(0, 0, 0, 0)
+                                if FadeOverlay then
+                                    FadeOverlay.BackgroundTransparency = 1
+                                end
                             end
                         end)
                     end
@@ -4633,6 +4647,18 @@ function Library:Panel(options)
             Visible = false,
             ZIndex = 5,
         })
+
+        local FadeOverlay = self:CreateInstance("Frame", {
+            Parent = TabPanel,
+            Name = "tab_fade_overlay",
+            BackgroundColor3 = Palette.Swatches.window,
+            BorderSizePixel = 0,
+            Size = Dim2(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            ZIndex = 100,
+        })
+        self:BindSwatchProperty(FadeOverlay, "BackgroundColor3", "window")
+
         TabContentPanels[idx] = {
             Panel = TabPanel,
             SubtabPanes = nil,
