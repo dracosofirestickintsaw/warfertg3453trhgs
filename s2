@@ -8559,20 +8559,22 @@ function Library:Panel(options)
         end
     end)
 
-    game:GetService("Players").LocalPlayer.CharacterRemoving:Connect(function()
-        if Library and Library.GetConfig then
-            writefile(Library.Directory .. "/configs/autoload.cfg", Library:GetConfig())
+    game:GetService("Players").LocalPlayer.AncestryChanged:Connect(function()
+        if Library and Library.ActiveConfigName and Library.ActiveConfigName ~= "" then
+            Library:EnsureDataFolders()
+            writefile(Library.Directory .. "/lastconfig.txt", Library.ActiveConfigName)
         end
     end)
 
     task.defer(function()
         task.wait()
-        local path = Library.Directory .. "/configs/autoload.cfg"
-        if isfile(path) then
-            local data = readfile(path)
-            if data and data ~= "" and data ~= "{}" then
-                Library:LoadConfig(data)
-                Library.ActiveConfigName = "autoload"
+        local namePath = Library.Directory .. "/lastconfig.txt"
+        if isfile(namePath) then
+            local stem = readfile(namePath):gsub("%s+", "")
+            local cfgPath = Library.Directory .. "/configs/" .. stem .. ".cfg"
+            if stem ~= "" and isfile(cfgPath) then
+                Library:LoadConfig(readfile(cfgPath))
+                Library.ActiveConfigName = stem
                 if Library._RefreshFolderConfigRows then
                     Library._RefreshFolderConfigRows()
                 end
