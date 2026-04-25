@@ -4468,12 +4468,10 @@ function Library:Panel(options)
     local TabButtons = {}
     local TabNameLabels = {}
     local TabIconLabels = {}
-    -- [i] = { Panel = Frame; SubtabPanes = nil | { Frame... }; ActiveSubtab = number }
     local TabContentPanels = {}
     local SidebarLayoutOrder = 0
     local ActiveTabIndex = 1
     local TabSubtabsStore = {}
-    -- Last normalized defs per tab (used by AddSubTab append + AddSubtabs replace).
     local SubtabDefsByTab = {}
     local AddSubtabsForTab
     local SyncSubtabsVisibility
@@ -4498,14 +4496,12 @@ function Library:Panel(options)
             overlay.BackgroundTransparency = 0
         end
 
-        -- hide all panels instantly while overlay covers everything
         for i, data in ipairs(TabContentPanels) do
             if data and data.Panel then
                 data.Panel.Visible = false
             end
         end
 
-        -- apply tab button styles
         for i, row in ipairs(TabButtons) do
             local on = i == index
             row.BackgroundColor3 = Palette.Swatches.tab_active
@@ -4520,9 +4516,9 @@ function Library:Panel(options)
             end
         end
 
-        -- show only the new panel
         local newInfo = TabContentPanels[index]
         if newInfo and newInfo.Panel then
+            newInfo.Panel.Position = Dim2(0, 0, 0, 18)
             newInfo.Panel.Visible = true
             if newInfo.SubtabPanes then
                 local j = newInfo.ActiveSubtab or 1
@@ -4530,9 +4526,9 @@ function Library:Panel(options)
                     pane.Visible = sj == j
                 end
             end
+            Library:Tween(newInfo.Panel, { Position = Dim2(0, 0, 0, 0) }, Enum.EasingStyle.Quart, 0.35)
         end
 
-        -- now fade the overlay away to reveal the new tab cleanly
         if overlay then
             Library:Tween(overlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, 0.3)
             task.delay(0.31, function()
