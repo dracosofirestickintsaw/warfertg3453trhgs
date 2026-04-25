@@ -4491,6 +4491,18 @@ function Library:Panel(options)
 
     local function ApplyTabStyle(index)
         ActiveTabIndex = index
+
+        local overlay = ContentBody:FindFirstChild("tab_fade_overlay")
+        if overlay then
+            overlay.Visible = true
+            overlay.BackgroundTransparency = 0
+            Library:Tween(overlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, 0.35)
+            task.delay(0.36, function()
+                if overlay and overlay.Parent then
+                    overlay.Visible = false
+                end
+            end)
+        end
         for i, row in ipairs(TabButtons) do
             local on = i == index
             row.BackgroundColor3 = Palette.Swatches.tab_active
@@ -8038,6 +8050,19 @@ function Library:Panel(options)
         ClipsDescendants = true,
         ZIndex = 2,
     })
+
+    local TabFadeOverlay = self:CreateInstance("Frame", {
+        Parent = ContentBody,
+        Name = "tab_fade_overlay",
+        BackgroundColor3 = Palette.Swatches.window,
+        BorderSizePixel = 0,
+        Size = Dim2(1, 0, 1, 0),
+        Position = Dim2(0, 0, 0, 0),
+        BackgroundTransparency = 1,
+        ZIndex = 999,
+        Visible = false,
+    })
+    self:BindSwatchProperty(TabFadeOverlay, "BackgroundColor3", "window")
 
     ContentScroll = self:CreateInstance("ScrollingFrame", {
         Parent = ContentBody,
