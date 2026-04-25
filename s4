@@ -4628,7 +4628,7 @@ function Library:Panel(options)
             Parent = SidebarTabStack,
             Name = "\0",
             AutoButtonColor = false,
-            Size = Dim2(0, SidebarWidth - 22, 0, 40),
+            Size = Dim2(0, SidebarWidth - 22, 0, 42),
             BackgroundColor3 = Palette.Swatches.tab_active,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
