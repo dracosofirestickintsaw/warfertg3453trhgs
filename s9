@@ -4505,17 +4505,14 @@ function Library:Panel(options)
             end
             local TabContentInfo = TabContentPanels[i]
             if TabContentInfo and TabContentInfo.Panel then
-                local FadeOverlay = TabContentInfo.Panel:FindFirstChild("tab_fade_overlay")
                 if on then
-                    if FadeOverlay then
-                        FadeOverlay.BackgroundTransparency = 0
-                    end
+                    TabContentInfo.Panel.GroupTransparency = 1
                     TabContentInfo.Panel.Position = Dim2(0, 0, 0, 18)
                     TabContentInfo.Panel.Visible = true
-                    Library:Tween(TabContentInfo.Panel, { Position = Dim2(0, 0, 0, 0) }, Enum.EasingStyle.Quart, 0.3)
-                    if FadeOverlay then
-                        Library:Tween(FadeOverlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, 0.3)
-                    end
+                    Library:Tween(TabContentInfo.Panel, {
+                        GroupTransparency = 0,
+                        Position = Dim2(0, 0, 0, 0)
+                    }, Enum.EasingStyle.Quart, 0.3)
                     if TabContentInfo.SubtabPanes then
                         local j = TabContentInfo.ActiveSubtab or 1
                         for sj, pane in ipairs(TabContentInfo.SubtabPanes) do
@@ -4524,19 +4521,16 @@ function Library:Panel(options)
                     end
                 else
                     if TabContentInfo.Panel.Visible then
-                        if FadeOverlay then
-                            FadeOverlay.BackgroundTransparency = 1
-                            Library:Tween(FadeOverlay, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quart, 0.2)
-                        end
-                        Library:Tween(TabContentInfo.Panel, { Position = Dim2(0, 0, 0, 10) }, Enum.EasingStyle.Quart, 0.2)
                         local capturedIndex = i
+                        Library:Tween(TabContentInfo.Panel, {
+                            GroupTransparency = 1,
+                            Position = Dim2(0, 0, 0, 10)
+                        }, Enum.EasingStyle.Quart, 0.2)
                         task.delay(0.22, function()
                             if ActiveTabIndex ~= capturedIndex then
                                 TabContentInfo.Panel.Visible = false
+                                TabContentInfo.Panel.GroupTransparency = 0
                                 TabContentInfo.Panel.Position = Dim2(0, 0, 0, 0)
-                                if FadeOverlay then
-                                    FadeOverlay.BackgroundTransparency = 1
-                                end
                             end
                         end)
                     end
@@ -4636,7 +4630,7 @@ function Library:Panel(options)
         local IconAsset = ResolveTabIcon(icon)
         local idx = #TabButtons + 1
 
-        local TabPanel = self:CreateInstance("Frame", {
+        local TabPanel = self:CreateInstance("CanvasGroup", {
             Parent = ContentScroll,
             Name = "TabPanel",
             BackgroundTransparency = 1,
@@ -4645,6 +4639,7 @@ function Library:Panel(options)
             AutomaticSize = Enum.AutomaticSize.Y,
             Position = Dim2(0, 0, 0, 0),
             Visible = false,
+            GroupTransparency = 0,
             ZIndex = 5,
         })
 
@@ -4759,7 +4754,6 @@ function Library:Panel(options)
             return self:AddSubtabs(...)
         end
 
-        -- Add all subtabs first; each AddSubTab rebuilds that tab's subtab pane.
         function handle:AddSubTab(...)
             local def
             local Args = { ... }
@@ -4806,7 +4800,6 @@ function Library:Panel(options)
         BorderSizePixel = 0,
     })
 
-    -- Above folder_dim_overlay (45) so header hits register on the buttons, not the dim first (avoids close+reopen on one click).
     local content_top = self:CreateInstance("Frame", {
         Parent = content,
         Name = "content_top",
@@ -4814,11 +4807,10 @@ function Library:Panel(options)
         Size = Dim2(1, 0, 0, 38),
         Position = Dim2(0, 0, 0, 0),
         BorderSizePixel = 0,
-        -- Above ContentBody (ZIndex 2) so the folder popover is not covered by the scroll area.
         ZIndex = 50,
     })
 
-    -- Search bar: inset past gear + gap on the left; reserve folder + gap on the right.
+
     local content_search = self:CreateInstance("Frame", {
         Parent = content_top,
         Name = "content_search",
