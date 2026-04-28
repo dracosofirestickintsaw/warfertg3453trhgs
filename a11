@@ -2091,7 +2091,6 @@ function Library:CreateSettingsSection(parent, spec)
             return SubOptionsApi
         end
 
-        -- Chained after AddToggle. Pass opts (see MountColorpicker comment). Exposes setColor / getColor / colorFlag on this table.
         function ToggleOut.AddColorpicker(_, opts)
             opts = typeof(opts) == "table" and opts or {}
             if opts.name == nil and opts.title == nil and opts.Name == nil and opts.titleText == nil and opts.Title == nil then
@@ -2294,7 +2293,6 @@ function Library:CreateSettingsSection(parent, spec)
             ZIndex = 10,
         })
 
-        -- Manual X layout (no UIListLayout): flex layouts can still resize children in some runtimes.
         local ValueLabel = LibraryRef:CreateInstance("TextLabel", {
             Parent = RightWrap,
             Name = "slider_value",
@@ -3072,7 +3070,6 @@ function Library:CreateSettingsSection(parent, spec)
                 end
             end)
         end
--- search bar
         local function BuildOptions()
             for _, child in ipairs(ListScroll:GetChildren()) do
                 if child:IsA("TextButton") and child.Name:sub(1, 16) == "dropdown_option_" then
@@ -3775,8 +3772,6 @@ function Library:CreateSettingsSection(parent, spec)
         }
     end
 
-    -- Single: Section:Button({ Name, Callback }) â€” same as AddButton, returns { row, button, dividerSlot }.
-    -- Pair: same call then :SubButton({...}) replaces that row with AddMultiButton (left = first, right = second).
     function SectionApi:Button(nameOrOptions, callbackArg)
         local section = self
 
@@ -3897,7 +3892,6 @@ function Library:Panel(options)
     local SidebarTitleText = options.SidebarTitle or options.sidebar_title or options.title or "OPTIMUM SOLUTIONS"
     local DefaultTabIcon = options.TabIcon or options.tab_icon or "rbxassetid://88390933415082"
     local TabDefinitions = options.Tabs or options.tabs
-    -- Search bar: defaults to Inter + 12px; pass SearchFontFace / SearchTextSize to override.
     local SearchFontFace = options.SearchFontFace or options.search_font_face
     if SearchFontFace == nil then
         SearchFontFace = self.Fonts.Inter
@@ -4009,7 +4003,6 @@ function Library:Panel(options)
         CornerRadius = Dim(0, 16),
     })
 
-    -- Same layout as ColorpickerDim: full main overlay, rounded to match the panel.
     local FolderDim = self:CreateInstance("Frame", {
         Parent = main,
         Name = "folder_dim_overlay",
@@ -4366,7 +4359,7 @@ function Library:Panel(options)
     Parent = screen,
     Name = "toggle_button",
     AnchorPoint = Vector2.new(0, 0),
-    Position = Dim2(0, 20, 0, Camera.ViewportSize.Y - 90),
+    Position = Dim2(0, 70, 0, Camera.ViewportSize.Y - 90),
     Size = Dim2(0, 70, 0, 70),
     BackgroundColor3 = Palette.Swatches.control,
     BorderSizePixel = 0,
@@ -4468,12 +4461,10 @@ function Library:Panel(options)
     local TabButtons = {}
     local TabNameLabels = {}
     local TabIconLabels = {}
-    -- [i] = { Panel = Frame; SubtabPanes = nil | { Frame... }; ActiveSubtab = number }
     local TabContentPanels = {}
     local SidebarLayoutOrder = 0
     local ActiveTabIndex = 1
     local TabSubtabsStore = {}
-    -- Last normalized defs per tab (used by AddSubTab append + AddSubtabs replace).
     local SubtabDefsByTab = {}
     local AddSubtabsForTab
     local SyncSubtabsVisibility
@@ -4491,6 +4482,19 @@ function Library:Panel(options)
 
     local function ApplyTabStyle(index)
         ActiveTabIndex = index
+
+        local overlay = ContentBody:FindFirstChild("tab_fade_overlay")
+        if overlay then
+            overlay.Visible = true
+            overlay.BackgroundTransparency = 0
+        end
+
+        for i, data in ipairs(TabContentPanels) do
+            if data and data.Panel then
+                data.Panel.Visible = false
+            end
+        end
+
         for i, row in ipairs(TabButtons) do
             local on = i == index
             row.BackgroundColor3 = Palette.Swatches.tab_active
@@ -4503,29 +4507,34 @@ function Library:Panel(options)
             if IconLabel then
                 IconLabel.ImageColor3 = on and Rgb(213, 213, 214) or Rgb(152, 152, 172)
             end
-            local TabContentInfo = TabContentPanels[i]
-            if TabContentInfo and TabContentInfo.Panel then
-                TabContentInfo.Panel.Visible = on
-                if on and TabContentInfo.SubtabPanes then
-                    local j = TabContentInfo.ActiveSubtab or 1
-                    for sj, pane in ipairs(TabContentInfo.SubtabPanes) do
-                        pane.Visible = sj == j
-                    end
+        end
+
+        local newInfo = TabContentPanels[index]
+        if newInfo and newInfo.Panel then
+            newInfo.Panel.Position = Dim2(0, 0, 0, 18)
+            newInfo.Panel.Visible = true
+            if newInfo.SubtabPanes then
+                local j = newInfo.ActiveSubtab or 1
+                for sj, pane in ipairs(newInfo.SubtabPanes) do
+                    pane.Visible = sj == j
                 end
             end
+            Library:Tween(newInfo.Panel, { Position = Dim2(0, 0, 0, 0) }, Enum.EasingStyle.Quart, 0.35)
         end
-        if SyncSubtabsVisibility then
-            SyncSubtabsVisibility()
+
+        if overlay then
+            Library:Tween(overlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, 0.3)
+            task.delay(0.31, function()
+                if overlay and overlay.Parent then
+                    overlay.Visible = false
+                end
+            end)
         end
-        if CloseFolderPopup then
-            CloseFolderPopup()
-        end
-        if CloseSettingsPopup then
-            CloseSettingsPopup()
-        end
-        if self._ApplyContentSearchFilter then
-            self._ApplyContentSearchFilter()
-        end
+
+        if SyncSubtabsVisibility then SyncSubtabsVisibility() end
+        if CloseFolderPopup then CloseFolderPopup() end
+        if CloseSettingsPopup then CloseSettingsPopup() end
+        if self._ApplyContentSearchFilter then self._ApplyContentSearchFilter() end
     end
 
     local function ResolveTabIcon(icon)
@@ -4577,19 +4586,21 @@ function Library:Panel(options)
             Name = "sidebar_tab_divider_row",
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            Size = Dim2(1, 0, 0, 1),
+            Size = Dim2(1, 0, 0, 17),
             LayoutOrder = NextSidebarLayoutOrder(),
         })
 
         self:CreateInstance("Frame", {
             Parent = DividerRow,
             Name = "sidebar_tab_divider",
-            BackgroundColor3 = Palette.Swatches.sidebar,
+            BackgroundColor3 = Rgb(55, 55, 66),
             BorderSizePixel = 0,
-            Size = Dim2(1, 22, 0, 1),
-            Position = Dim2(0.5, 0, 0, 0),
-            AnchorPoint = Vector2.new(0.5, 0),
+            Size = Dim2(1, -22, 0, 1),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = Dim2(0.5, 0, 0.5, 0),
         })
+
+        self:BindSwatchProperty(dividerLine, "BackgroundColor3", "control")
 
         SidebarTabStack.Visible = true
         ResizeMainToFitSidebar()
@@ -4605,7 +4616,7 @@ function Library:Panel(options)
         local IconAsset = ResolveTabIcon(icon)
         local idx = #TabButtons + 1
 
-        local TabPanel = self:CreateInstance("Frame", {
+        local TabPanel = self:CreateInstance("CanvasGroup", {
             Parent = ContentScroll,
             Name = "TabPanel",
             BackgroundTransparency = 1,
@@ -4614,8 +4625,21 @@ function Library:Panel(options)
             AutomaticSize = Enum.AutomaticSize.Y,
             Position = Dim2(0, 0, 0, 0),
             Visible = false,
+            GroupTransparency = 0,
             ZIndex = 5,
         })
+
+        local FadeOverlay = self:CreateInstance("Frame", {
+            Parent = TabPanel,
+            Name = "tab_fade_overlay",
+            BackgroundColor3 = Palette.Swatches.window,
+            BorderSizePixel = 0,
+            Size = Dim2(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            ZIndex = 100,
+        })
+        self:BindSwatchProperty(FadeOverlay, "BackgroundColor3", "window")
+
         TabContentPanels[idx] = {
             Panel = TabPanel,
             SubtabPanes = nil,
@@ -4626,7 +4650,7 @@ function Library:Panel(options)
             Parent = SidebarTabStack,
             Name = "\0",
             AutoButtonColor = false,
-            Size = Dim2(0, SidebarWidth - 22, 0, 44),
+            Size = Dim2(0, SidebarWidth - 22, 0, 42),
             BackgroundColor3 = Palette.Swatches.tab_active,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
@@ -4716,7 +4740,6 @@ function Library:Panel(options)
             return self:AddSubtabs(...)
         end
 
-        -- Add all subtabs first; each AddSubTab rebuilds that tab's subtab pane.
         function handle:AddSubTab(...)
             local def
             local Args = { ... }
@@ -4763,7 +4786,6 @@ function Library:Panel(options)
         BorderSizePixel = 0,
     })
 
-    -- Above folder_dim_overlay (45) so header hits register on the buttons, not the dim first (avoids close+reopen on one click).
     local content_top = self:CreateInstance("Frame", {
         Parent = content,
         Name = "content_top",
@@ -4771,11 +4793,10 @@ function Library:Panel(options)
         Size = Dim2(1, 0, 0, 38),
         Position = Dim2(0, 0, 0, 0),
         BorderSizePixel = 0,
-        -- Above ContentBody (ZIndex 2) so the folder popover is not covered by the scroll area.
         ZIndex = 50,
     })
 
-    -- Search bar: inset past gear + gap on the left; reserve folder + gap on the right.
+
     local content_search = self:CreateInstance("Frame", {
         Parent = content_top,
         Name = "content_search",
@@ -5264,7 +5285,6 @@ function Library:Panel(options)
         ZIndex = 57,
     })
 
-    -- Above FolderScroll ZIndex: scroll has higher LayoutOrder and would otherwise draw on top and eat clicks on the bottom config row.
     local FolderFolderMid = self:CreateInstance("Frame", {
         Parent = FolderInner,
         Name = "folder_mid_section",
@@ -8004,6 +8024,19 @@ function Library:Panel(options)
         ZIndex = 2,
     })
 
+    local TabFadeOverlay = self:CreateInstance("Frame", {
+        Parent = ContentBody,
+        Name = "tab_fade_overlay",
+        BackgroundColor3 = Palette.Swatches.window,
+        BorderSizePixel = 0,
+        Size = Dim2(1, 0, 1, 0),
+        Position = Dim2(0, 0, 0, 0),
+        BackgroundTransparency = 1,
+        ZIndex = 999,
+        Visible = false,
+    })
+    self:BindSwatchProperty(TabFadeOverlay, "BackgroundColor3", "window")
+
     ContentScroll = self:CreateInstance("ScrollingFrame", {
         Parent = ContentBody,
         Name = "ContentScroll",
@@ -8479,14 +8512,37 @@ function Library:Panel(options)
 
         for i, btn in ipairs(SubtabBtns) do
             self:Connection(btn.MouseButton1Click, function()
+                local overlay = ContentBody:FindFirstChild("tab_fade_overlay")
+                if overlay then
+                    overlay.Visible = true
+                    overlay.BackgroundTransparency = 0
+                end
+
                 if TabContentInfo and TabContentInfo.SubtabPanes then
-                    TabContentInfo.ActiveSubtab = i
                     for j, pane in ipairs(TabContentInfo.SubtabPanes) do
-                        pane.Visible = j == i
+                        pane.Visible = false
+                    end
+                    TabContentInfo.ActiveSubtab = i
+                    local newPane = TabContentInfo.SubtabPanes[i]
+                    if newPane then
+                        newPane.Position = Dim2(0, 0, 0, 18)
+                        newPane.Visible = true
+                        Library:Tween(newPane, { Position = Dim2(0, 0, 0, 0) }, Enum.EasingStyle.Quart, 0.35)
                     end
                 end
+
                 ApplySubtabStyle(i)
                 MoveSliderTo(btn, true)
+
+                if overlay then
+                    Library:Tween(overlay, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, 0.3)
+                    task.delay(0.31, function()
+                        if overlay and overlay.Parent then
+                            overlay.Visible = false
+                        end
+                    end)
+                end
+
                 if self._ApplyContentSearchFilter then
                     self._ApplyContentSearchFilter()
                 end
