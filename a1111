@@ -4359,7 +4359,7 @@ function Library:Panel(options)
     Parent = screen,
     Name = "toggle_button",
     AnchorPoint = Vector2.new(0, 0),
-    Position = Dim2(0, 70, 90, Camera.ViewportSize.Y - 90),
+    Position = Dim2(0, 70, 30, Camera.ViewportSize.Y - 90),
     Size = Dim2(0, 70, 0, 70),
     BackgroundColor3 = Palette.Swatches.control,
     BorderSizePixel = 0,
