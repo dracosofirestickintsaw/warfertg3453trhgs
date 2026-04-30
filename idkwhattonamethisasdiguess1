@@ -1,38 +1,18 @@
 --[[
     TabLib - Declarative UI Library for Roblox
-    Transform hardcoded UI scripts into reusable declarative components
-
     Usage:
-        local TabLib = require(path.to.TabLib)
-
-        local UI = TabLib.create({
-            Name = "MyUI",
-        })
-
-        local MainTab = UI:Tab({
+        local Tab = loadstring(game:HttpGet("your-url/TabLib.lua"))()
+        
+        Tab:Tab({
             name = "Main",
             icon = "lucide:home",
-        })
-
-        MainTab:Section({
+        }):Section({
             name = "Section1",
-        })
-
-        MainTab:Toggle({
-            name = "Toggle 1",
+        }):Toggle({
+            name = "Remove Sky",
             default = false,
             callback = function(value)
                 print("Toggle:", value)
-            end
-        })
-
-        MainTab:Slider({
-            name = "Slider 1",
-            min = 0,
-            max = 100,
-            default = 50,
-            callback = function(value)
-                print("Slider:", value)
             end
         })
 ]]
@@ -42,6 +22,7 @@ local TabLib = {}
 -- Service shortcuts
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 -- Theme configuration
 local Theme = {
@@ -54,8 +35,56 @@ local Theme = {
     GradientEnd = Color3.fromRGB(30, 31, 35),
 }
 
+-- Create main UI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TabLibUI"
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.BackgroundColor3 = Theme.MainBackground
+MainFrame.Position = UDim2.fromScale(0.287726, 0.19546)
+MainFrame.Size = UDim2.fromOffset(670, 511)
+MainFrame.Parent = ScreenGui
+
+local MainGradient = Instance.new("UIGradient")
+MainGradient.Name = "UIGradient"
+MainGradient.Rotation = -90
+MainGradient.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0, 0),
+    NumberSequenceKeypoint.new(1, 0.16875),
+})
+MainGradient.Parent = MainFrame
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.Name = "UICorner"
+MainCorner.Parent = MainFrame
+
+local TabContainer = Instance.new("Frame")
+TabContainer.Name = "TabContainer"
+TabContainer.BackgroundTransparency = 1
+TabContainer.Position = UDim2.new(0, 0, 0, 0)
+TabContainer.Size = UDim2.new(1, 0, 0, 40)
+TabContainer.Parent = MainFrame
+
+local ContentArea = Instance.new("Frame")
+ContentArea.Name = "ContentArea"
+ContentArea.BackgroundTransparency = 1
+ContentArea.Position = UDim2.new(0, 0, 0, 45)
+ContentArea.Size = UDim2.new(1, 0, 1, -45)
+ContentArea.Parent = MainFrame
+
+-- State management
+local state = {
+    tabs = {},
+    currentTab = nil,
+    tabOrder = 0,
+    sectionCount = 0,
+}
+
 -- Utility functions
-local function CreateShadow(parent, offset, transparency, color)
+local function CreateShadow(parent, transparency, color)
     local shadow = Instance.new("ImageLabel")
     shadow.Name = "shadow"
     shadow.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -80,272 +109,183 @@ local function CreateShadowHolder(parent, offsetX, offsetY, sizeX, sizeY)
     holder.Size = UDim2.new(sizeX.Scale, sizeX.Offset or 0, sizeY.Scale, sizeY.Offset or 0)
     holder.ZIndex = 0
 
-    CreateShadow(holder, 0, 0.92)
-    CreateShadow(holder, 0, 0.93)
-    CreateShadow(holder, 0, 0.9)
+    CreateShadow(holder, 0.92)
+    CreateShadow(holder, 0.93)
+    CreateShadow(holder, 0.9)
 
     holder.Parent = parent
     return holder
 end
 
-local function CreateTextGlow(parent, offsetX, offsetY)
+local function CreateTextGlow(parent)
     local glow = Instance.new("Frame")
     glow.Name = "Text Glow"
     glow.BackgroundTransparency = 1
-    glow.Position = UDim2.new(offsetX.Scale, offsetX.Offset or 0, offsetY.Scale, offsetY.Offset or 0)
+    glow.Position = UDim2.new(0.087, -23, 0.235, -37)
     glow.Size = UDim2.new(-0.492575, 200, 0.017, 15)
 
-    CreateShadow(glow, 0, 0.98)
-    CreateShadow(glow, 0, 0.98)
-    CreateShadow(glow, 0, 0.98)
+    CreateShadow(glow, 0.98)
+    CreateShadow(glow, 0.98)
+    CreateShadow(glow, 0.98)
 
     glow.Parent = parent
     return glow
 end
 
--- Create the main UI
-function TabLib.create(config)
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = config.Name or "TabLibUI"
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- Create tab button
+local function CreateTabButton(tabConfig, tabData)
+    local isSelected = tabData.index == 1
 
-    -- Main frame
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.BackgroundColor3 = Theme.MainBackground
-    MainFrame.Position = config.Position or UDim2.fromScale(0.287726, 0.19546)
-    MainFrame.Size = config.Size or UDim2.fromOffset(670, 511)
-    MainFrame.Parent = ScreenGui
+    local tabFrame = Instance.new("Frame")
+    tabFrame.Name = tabConfig.name .. "Tab"
+    tabFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+    tabFrame.Position = UDim2.new(0, tabData.offsetX, 0.03, -5)
+    tabFrame.Size = UDim2.fromOffset(tabData.width, 35)
+    tabFrame.Parent = TabContainer
 
-    -- Gradient for main frame
-    local MainGradient = Instance.new("UIGradient")
-    MainGradient.Name = "UIGradient"
-    MainGradient.Rotation = -90
-    MainGradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0),
-        NumberSequenceKeypoint.new(1, 0.16875),
+    local corner = Instance.new("UICorner")
+    corner.Name = "UICorner"
+    corner.CornerRadius = UDim.new(0, 3)
+    corner.Parent = tabFrame
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Name = "UIGradient"
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Theme.GradientStart),
+        ColorSequenceKeypoint.new(1, Theme.GradientEnd),
     })
-    MainGradient.Parent = MainFrame
+    gradient.Parent = tabFrame
 
-    -- Corner for main frame
-    local MainCorner = Instance.new("UICorner")
-    MainCorner.Name = "UICorner"
-    MainCorner.Parent = MainFrame
+    local label = Instance.new("TextLabel")
+    label.Name = "SectionName"
+    label.BackgroundTransparency = 1
+    label.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json")
+    label.Position = UDim2.new(0, isSelected and 1 or -21, 0.029, -1)
+    label.Size = UDim2.fromOffset(103, 34)
+    label.Text = tabConfig.name
+    label.TextColor3 = isSelected and Theme.TextSelected or Theme.TextPrimary
+    label.TextSize = 19
+    label.Parent = tabFrame
 
-    -- Container for tabs
-    local TabContainer = Instance.new("Frame")
-    TabContainer.Name = "TabContainer"
-    TabContainer.BackgroundTransparency = 1
-    TabContainer.Position = UDim2.new(0, 0, 0, 0)
-    TabContainer.Size = UDim2.new(1, 0, 0, 40)
-    TabContainer.Parent = MainFrame
+    if isSelected then
+        CreateShadowHolder(label, {Scale = 0.0873786, Offset = 0}, {Scale = 0.235294, Offset = 0}, {Scale = 0.834952, Offset = 0}, {Scale = 0.588235, Offset = 0})
+    end
 
-    -- Content area
-    local ContentArea = Instance.new("Frame")
-    ContentArea.Name = "ContentArea"
-    ContentArea.BackgroundTransparency = 1
-    ContentArea.Position = UDim2.new(0, 0, 0, 45)
-    ContentArea.Size = UDim2.new(1, 0, 1, -45)
-    ContentArea.Parent = MainFrame
+    tabFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            for _, tab in pairs(state.tabs) do
+                tab.button.Label.TextColor3 = Theme.TextPrimary
+                tab.button.Frame.BackgroundTransparency = 1
+                tab.button.Frame:TweenSize(UDim2.fromOffset(tab.width, 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+                tab.button.Label.Position = UDim2.new(0, -21, 0.029, -1)
+            end
 
-    -- State management
-    local state = {
-        tabs = {},
-        currentTab = nil,
-        tabOrder = 0,
-    }
+            tabData.button.Frame.BackgroundTransparency = 0
+            tabData.button.Frame:TweenSize(UDim2.fromOffset(tabData.width, 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+            tabData.button.Label.Position = UDim2.new(0, 1, 0.029, -1)
+            tabData.button.Label.TextColor3 = Theme.TextSelected
 
-    -- Create tab button
-    local function CreateTabButton(tabConfig, tabData)
-        local isSelected = tabData.index == 1
+            for _, section in pairs(tabData.sections) do
+                section.Visible = true
+            end
 
-        local tabFrame = Instance.new("Frame")
-        tabFrame.Name = tabConfig.name .. "Tab"
-        tabFrame.BackgroundColor3 = Color3.new(1, 1, 1)
-        tabFrame.Position = UDim2.new(0, tabData.offsetX, 0.03, -5)
-        tabFrame.Size = UDim2.fromOffset(tabData.width, 35)
-        tabFrame.Parent = TabContainer
-
-        -- Corner
-        local corner = Instance.new("UICorner")
-        corner.Name = "UICorner"
-        corner.CornerRadius = UDim.new(0, 3)
-        corner.Parent = tabFrame
-
-        -- Gradient
-        local gradient = Instance.new("UIGradient")
-        gradient.Name = "UIGradient"
-        gradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Theme.GradientStart),
-            ColorSequenceKeypoint.new(1, Theme.GradientEnd),
-        })
-        gradient.Parent = tabFrame
-
-        -- Label
-        local label = Instance.new("TextLabel")
-        label.Name = "SectionName"
-        label.BackgroundTransparency = 1
-        label.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json")
-        label.Position = UDim2.new(0, isSelected and 1 or -21, 0.029, -1)
-        label.Size = UDim2.fromOffset(103, 34)
-        label.Text = tabConfig.name
-        label.TextColor3 = isSelected and Theme.TextSelected or Theme.TextPrimary
-        label.TextSize = 19
-        label.Parent = tabFrame
-
-        -- Icon (if provided)
-        if tabConfig.icon then
-            local iconLabel = Instance.new("TextLabel")
-            iconLabel.Name = "Icon"
-            iconLabel.BackgroundTransparency = 1
-            iconLabel.FontFace = Font.new("rbxasset://fonts/families/Gotham.json")
-            iconLabel.Position = UDim2.new(0, isSelected and 85 or 63, 0.029, -1)
-            iconLabel.Size = UDim2.fromOffset(20, 34)
-            iconLabel.Text = tabConfig.icon
-            iconLabel.TextColor3 = isSelected and Theme.TextSelected or Theme.TextPrimary
-            iconLabel.TextSize = 14
-            iconLabel.Parent = tabFrame
-        end
-
-        -- Shadow (only for selected tab)
-        if isSelected then
-            CreateShadowHolder(label, {Scale = 0.0873786, Offset = 0}, {Scale = 0.235294, Offset = 0}, {Scale = 0.834952, Offset = 0}, {Scale = 0.588235, Offset = 0})
-        end
-
-        -- Click handler
-        tabFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                -- Update all tabs
-                for _, tab in pairs(state.tabs) do
-                    tab.button.Label.TextColor3 = Theme.TextPrimary
-                    tab.button.Frame.BackgroundTransparency = 1
-                    if tab.button.Icon then
-                        tab.button.Icon.TextColor3 = Theme.TextPrimary
+            for _, otherTab in pairs(state.tabs) do
+                if otherTab ~= tabData then
+                    for _, section in pairs(otherTab.sections) do
+                        section.Visible = false
                     end
-                    tab.button.Frame:TweenSize(UDim2.fromOffset(tab.width, 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
-                    tab.button.Label.Position = UDim2.new(0, -21, 0.029, -1)
-                end
-
-                -- Select this tab
-                tabData.button.Frame.BackgroundTransparency = 0
-                tabData.button.Frame:TweenSize(UDim2.fromOffset(tabData.width + (tabConfig.icon and 0 or 45), 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
-                tabData.button.Label.Position = UDim2.new(0, 1, 0.029, -1)
-                tabData.button.Label.TextColor3 = Theme.TextSelected
-                if tabData.button.Icon then
-                    tabData.button.Icon.TextColor3 = Theme.TextSelected
-                end
-
-                -- Show content
-                for _, section in pairs(tabData.sections) do
-                    section.Visible = true
-                end
-
-                -- Hide other tab contents
-                for _, otherTab in pairs(state.tabs) do
-                    if otherTab ~= tabData then
-                        for _, section in pairs(otherTab.sections) do
-                            section.Visible = false
-                        end
-                    end
-                end
-
-                state.currentTab = tabData
-
-                -- Callback
-                if tabConfig.callback then
-                    tabConfig.callback()
                 end
             end
-        end)
 
-        return {
-            frame = tabFrame,
-            label = label,
-            icon = tabFrame:FindFirstChild("Icon"),
-        }
-    end
+            state.currentTab = tabData
 
-    -- Create section
-    local function CreateSection(sectionConfig, tabData)
-        local sectionIndex = #tabData.sections + 1
-        local xOffset = sectionIndex == 1 and 100 or 385
-        local yOffset = 60 + ((sectionIndex - 1) % 2) * 205
+            if tabConfig.callback then
+                tabConfig.callback()
+            end
+        end
+    end)
 
-        local section = Instance.new("Frame")
-        section.Name = sectionConfig.name
-        section.BackgroundColor3 = Theme.SectionBackground
-        section.ClipsDescendants = true
-        section.Position = UDim2.fromOffset(xOffset, yOffset)
-        section.Size = sectionConfig.size or UDim2.fromOffset(273, 200)
-        section.Visible = tabData.index == 1
-        section.Parent = ContentArea
+    return {
+        frame = tabFrame,
+        label = label,
+    }
+end
 
-        -- Corner
-        local corner = Instance.new("UICorner")
-        corner.Name = "UICorner"
-        corner.CornerRadius = UDim.new(0, 5)
-        corner.Parent = section
+-- Create section
+local function CreateSection(sectionConfig, tabData)
+    state.sectionCount = state.sectionCount + 1
+    local sectionIndex = state.sectionCount
+    local xOffset = sectionIndex % 2 == 1 and 100 or 385
+    local yOffset = 60 + (math.floor((sectionIndex - 1) / 2)) * 205
 
-        -- Glow bar
-        local glow = Instance.new("Frame")
-        glow.Name = "UiGlow"
-        glow.BackgroundColor3 = Theme.AccentColor
-        glow.Size = UDim2.fromOffset(273, 5)
-        glow.Parent = section
+    local section = Instance.new("Frame")
+    section.Name = sectionConfig.name
+    section.BackgroundColor3 = Theme.SectionBackground
+    section.ClipsDescendants = true
+    section.Position = UDim2.fromOffset(xOffset, yOffset)
+    section.Size = sectionConfig.size or UDim2.fromOffset(273, 200)
+    section.Visible = tabData.index == 1
+    section.Parent = ContentArea
 
-        local glowCorner = Instance.new("UICorner")
-        glowCorner.Name = "UICorner"
-        glowCorner.CornerRadius = UDim.new(0, 5)
-        glowCorner.Parent = glow
+    local corner = Instance.new("UICorner")
+    corner.Name = "UICorner"
+    corner.CornerRadius = UDim.new(0, 5)
+    corner.Parent = section
 
-        -- Hide glow
-        local hideGlow = Instance.new("Frame")
-        hideGlow.Name = "HideUiGlow"
-        hideGlow.BackgroundColor3 = Theme.SectionBackground
-        hideGlow.BorderColor3 = Color3.new()
-        hideGlow.BorderSizePixel = 0
-        hideGlow.Position = UDim2.new(-0.021282, 0, 0.05, -7)
-        hideGlow.Size = UDim2.fromOffset(283, 8)
-        hideGlow.Parent = section
+    local glow = Instance.new("Frame")
+    glow.Name = "UiGlow"
+    glow.BackgroundColor3 = Theme.AccentColor
+    glow.Size = UDim2.fromOffset(273, 5)
+    glow.Parent = section
 
-        -- Section name
-        local nameLabel = Instance.new("TextLabel")
-        nameLabel.Name = "SectionName"
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-        nameLabel.Position = UDim2.fromOffset(-26, 3)
-        nameLabel.Size = UDim2.fromOffset(124, 30)
-        nameLabel.Text = sectionConfig.name
-        nameLabel.TextColor3 = Theme.TextPrimary
-        nameLabel.TextSize = 18
-        nameLabel.Parent = section
+    local glowCorner = Instance.new("UICorner")
+    glowCorner.Name = "UICorner"
+    glowCorner.CornerRadius = UDim.new(0, 5)
+    glowCorner.Parent = glow
 
-        -- Text glow
-        CreateTextGlow(section, {Scale = 0.087, Offset = -23}, {Scale = 0.235, Offset = -37})
+    local hideGlow = Instance.new("Frame")
+    hideGlow.Name = "HideUiGlow"
+    hideGlow.BackgroundColor3 = Theme.SectionBackground
+    hideGlow.BorderColor3 = Color3.new()
+    hideGlow.BorderSizePixel = 0
+    hideGlow.Position = UDim2.new(-0.021282, 0, 0.05, -7)
+    hideGlow.Size = UDim2.fromOffset(283, 8)
+    hideGlow.Parent = section
 
-        -- Elements container
-        local elementsFrame = Instance.new("Frame")
-        elementsFrame.Name = "Elements"
-        elementsFrame.BackgroundTransparency = 1
-        elementsFrame.Position = UDim2.fromOffset(10, 40)
-        elementsFrame.Size = UDim2.new(1, -20, 1, -50)
-        elementsFrame.Parent = section
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "SectionName"
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    nameLabel.Position = UDim2.fromOffset(-26, 3)
+    nameLabel.Size = UDim2.fromOffset(124, 30)
+    nameLabel.Text = sectionConfig.name
+    nameLabel.TextColor3 = Theme.TextPrimary
+    nameLabel.TextSize = 18
+    nameLabel.Parent = section
 
-        local listLayout = Instance.new("UIListLayout")
-        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        listLayout.Padding = UDim.new(0, 8)
-        listLayout.Parent = elementsFrame
+    CreateTextGlow(section)
 
-        return {
-            frame = section,
-            elements = elementsFrame,
-            layout = listLayout,
-        }
-    end
+    local elementsFrame = Instance.new("Frame")
+    elementsFrame.Name = "Elements"
+    elementsFrame.BackgroundTransparency = 1
+    elementsFrame.Position = UDim2.fromOffset(10, 40)
+    elementsFrame.Size = UDim2.new(1, -20, 1, -50)
+    elementsFrame.Parent = section
 
-    -- Create toggle element
-    local function CreateToggle(config, sectionData)
-        local layoutOrder = #sectionData.children + 1
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Padding = UDim.new(0, 8)
+    listLayout.Parent = elementsFrame
+
+    local sectionAPI = {
+        frame = section,
+        elements = elementsFrame,
+        children = {},
+    }
+
+    -- Section methods
+    function sectionAPI:Toggle(config)
+        local layoutOrder = #sectionAPI.children + 1
 
         local toggleFrame = Instance.new("Frame")
         toggleFrame.Name = config.name
@@ -354,7 +294,7 @@ function TabLib.create(config)
         toggleFrame.Position = UDim2.new(0, 0, 0, (layoutOrder - 1) * 35)
         toggleFrame.Size = UDim2.fromOffset(250, 30)
         toggleFrame.LayoutOrder = layoutOrder
-        toggleFrame.Parent = sectionData.elements
+        toggleFrame.Parent = elementsFrame
 
         local corner = Instance.new("UICorner")
         corner.Name = "UICorner"
@@ -385,19 +325,19 @@ function TabLib.create(config)
         checkboxCorner.CornerRadius = UDim.new(0, 3)
         checkboxCorner.Parent = checkboxFrame
 
-        local state = { enabled = config.default or false }
+        local toggleState = { enabled = config.default or false }
 
         local function updateCheckbox()
-            checkboxFrame.BackgroundColor3 = state.enabled and Theme.AccentColor or Color3.fromRGB(50, 50, 50)
+            checkboxFrame.BackgroundColor3 = toggleState.enabled and Theme.AccentColor or Color3.fromRGB(50, 50, 50)
         end
 
         updateCheckbox()
 
         local function toggle()
-            state.enabled = not state.enabled
+            toggleState.enabled = not toggleState.enabled
             updateCheckbox()
             if config.callback then
-                config.callback(state.enabled)
+                config.callback(toggleState.enabled)
             end
         end
 
@@ -413,21 +353,22 @@ function TabLib.create(config)
             end
         end)
 
-        return {
-            frame = toggleFrame,
-            setValue = function(value)
-                state.enabled = value
-                updateCheckbox()
-            end,
-            getValue = function()
-                return state.enabled
-            end,
-        }
+        table.insert(sectionAPI.children, toggleFrame)
+
+        local toggleAPI = {}
+        toggleAPI.setValue = function(value)
+            toggleState.enabled = value
+            updateCheckbox()
+        end
+        toggleAPI.getValue = function()
+            return toggleState.enabled
+        end
+
+        return sectionAPI
     end
 
-    -- Create slider element
-    local function CreateSlider(config, sectionData)
-        local layoutOrder = #sectionData.children + 1
+    function sectionAPI:Slider(config)
+        local layoutOrder = #sectionAPI.children + 1
 
         local sliderFrame = Instance.new("Frame")
         sliderFrame.Name = config.name
@@ -436,7 +377,7 @@ function TabLib.create(config)
         sliderFrame.Position = UDim2.new(0, 0, 0, (layoutOrder - 1) * 50)
         sliderFrame.Size = UDim2.fromOffset(250, 45)
         sliderFrame.LayoutOrder = layoutOrder
-        sliderFrame.Parent = sectionData.elements
+        sliderFrame.Parent = elementsFrame
 
         local corner = Instance.new("UICorner")
         corner.Name = "UICorner"
@@ -490,14 +431,14 @@ function TabLib.create(config)
         fillCorner.CornerRadius = UDim.new(0, 5)
         fillCorner.Parent = sliderFill
 
-        local state = { value = config.default or config.min or 0 }
+        local sliderState = { value = config.default or config.min or 0 }
         local minVal = config.min or 0
         local maxVal = config.max or 100
 
         local function updateSlider()
-            local percent = (state.value - minVal) / (maxVal - minVal)
-            sliderFill.Size = UDim2.fromOffset(230 * percent, 10)
-            valueLabel.Text = tostring(math.floor(state.value))
+            local percent = (sliderState.value - minVal) / (maxVal - minVal)
+            sliderFill.Size = UDim2.fromOffset(230 * math.clamp(percent, 0, 1), 10)
+            valueLabel.Text = tostring(math.floor(sliderState.value))
         end
 
         updateSlider()
@@ -532,29 +473,30 @@ function TabLib.create(config)
             if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 local relativePos = (input.Position.X - sliderTrack.AbsolutePosition.X) / sliderTrack.AbsoluteSize.X
                 relativePos = math.clamp(relativePos, 0, 1)
-                state.value = minVal + (maxVal - minVal) * relativePos
+                sliderState.value = minVal + (maxVal - minVal) * relativePos
                 updateSlider()
                 if config.callback then
-                    config.callback(state.value)
+                    config.callback(sliderState.value)
                 end
             end
         end)
 
-        return {
-            frame = sliderFrame,
-            setValue = function(value)
-                state.value = math.clamp(value, minVal, maxVal)
-                updateSlider()
-            end,
-            getValue = function()
-                return state.value
-            end,
-        }
+        table.insert(sectionAPI.children, sliderFrame)
+
+        local sliderAPI = {}
+        sliderAPI.setValue = function(value)
+            sliderState.value = math.clamp(value, minVal, maxVal)
+            updateSlider()
+        end
+        sliderAPI.getValue = function()
+            return sliderState.value
+        end
+
+        return sectionAPI
     end
 
-    -- Create button element
-    local function CreateButton(config, sectionData)
-        local layoutOrder = #sectionData.children + 1
+    function sectionAPI:Button(config)
+        local layoutOrder = #sectionAPI.children + 1
 
         local buttonFrame = Instance.new("Frame")
         buttonFrame.Name = config.name
@@ -563,7 +505,7 @@ function TabLib.create(config)
         buttonFrame.Position = UDim2.new(0, 0, 0, (layoutOrder - 1) * 35)
         buttonFrame.Size = UDim2.fromOffset(250, 30)
         buttonFrame.LayoutOrder = layoutOrder
-        buttonFrame.Parent = sectionData.elements
+        buttonFrame.Parent = elementsFrame
 
         local corner = Instance.new("UICorner")
         corner.Name = "UICorner"
@@ -589,14 +531,13 @@ function TabLib.create(config)
             end
         end)
 
-        return {
-            frame = buttonFrame,
-        }
+        table.insert(sectionAPI.children, buttonFrame)
+
+        return sectionAPI
     end
 
-    -- Create label element
-    local function CreateLabel(config, sectionData)
-        local layoutOrder = #sectionData.children + 1
+    function sectionAPI:Label(config)
+        local layoutOrder = #sectionAPI.children + 1
 
         local labelFrame = Instance.new("Frame")
         labelFrame.Name = config.name
@@ -604,7 +545,7 @@ function TabLib.create(config)
         labelFrame.Position = UDim2.new(0, 0, 0, (layoutOrder - 1) * 25)
         labelFrame.Size = UDim2.fromOffset(250, 20)
         labelFrame.LayoutOrder = layoutOrder
-        labelFrame.Parent = sectionData.elements
+        labelFrame.Parent = elementsFrame
 
         local label = Instance.new("TextLabel")
         label.Name = "Label"
@@ -618,20 +559,21 @@ function TabLib.create(config)
         label.TextXAlignment = config.alignment or Enum.TextXAlignment.Left
         label.Parent = labelFrame
 
-        return {
-            frame = labelFrame,
-            setText = function(text)
-                label.Text = text
-            end,
-            getText = function()
-                return label.Text
-            end,
-        }
+        table.insert(sectionAPI.children, labelFrame)
+
+        local labelAPI = {}
+        labelAPI.setText = function(text)
+            label.Text = text
+        end
+        labelAPI.getText = function()
+            return label.Text
+        end
+
+        return sectionAPI
     end
 
-    -- Create divider element
-    local function CreateDivider(config, sectionData)
-        local layoutOrder = #sectionData.children + 1
+    function sectionAPI:Divider()
+        local layoutOrder = #sectionAPI.children + 1
 
         local dividerFrame = Instance.new("Frame")
         dividerFrame.Name = "Divider"
@@ -640,87 +582,53 @@ function TabLib.create(config)
         dividerFrame.Position = UDim2.new(0, 0, 0, (layoutOrder - 1) * 15)
         dividerFrame.Size = UDim2.fromOffset(250, 1)
         dividerFrame.LayoutOrder = layoutOrder
-        dividerFrame.Parent = sectionData.elements
+        dividerFrame.Parent = elementsFrame
 
-        return {
-            frame = dividerFrame,
-        }
+        table.insert(sectionAPI.children, dividerFrame)
+
+        return sectionAPI
     end
 
-    -- Create section shadow holder
-    local function CreateSectionShadow(sectionData, index)
-        local offsetY = index == 1 and 41 or 325
-        local shadowHolder = Instance.new("Frame")
-        shadowHolder.Name = "ShadowHolder(Section" .. index .. ")"
-        shadowHolder.BackgroundTransparency = 1
-        shadowHolder.Position = UDim2.new(0.087, 41, 0.235, -66 + (offsetY - 60))
-        shadowHolder.Size = UDim2.new(0.185, 150, 0.017, 5)
-        shadowHolder.Parent = MainFrame
+    return sectionAPI
+end
 
-        CreateShadow(shadowHolder, 0, 0.86)
-        CreateShadow(shadowHolder, 0, 0.86)
-        CreateShadow(shadowHolder, 0, 0.86)
+-- Tab method
+function TabLib:Tab(config)
+    local tabData = {
+        config = config,
+        index = state.tabOrder + 1,
+        offsetX = state.tabOrder == 0 and -5 or (state.tabOrder == 1 and 98 or state.tabOrder == 2 and 152 or 179 + (state.tabOrder - 3) * 55),
+        width = 40 + (#config.name * 7.5),
+        sections = {},
+    }
 
-        return shadowHolder
+    tabData.button = CreateTabButton(config, tabData)
+
+    state.tabs[tabData.index] = tabData
+    state.tabOrder = state.tabOrder + 1
+
+    local tabAPI = {}
+
+    function tabAPI:Section(sectionConfig)
+        local section = CreateSection(sectionConfig, tabData)
+        table.insert(tabData.sections, section.frame)
+        return section
     end
 
-    -- Public API
-    local API = {}
+    return tabAPI
+end
 
-    function API:Tab(config)
-        local tabData = {
-            config = config,
-            index = state.tabOrder + 1,
-            offsetX = state.tabOrder == 0 and -5 or (state.tabOrder == 1 and 98 or state.tabOrder == 2 and 152 or 179 + (state.tabOrder - 3) * 55),
-            width = (config.icon and 50 or 40) + (#config.name * 7.5),
-            sections = {},
-            children = {},
-        }
+-- Utility methods
+function TabLib:Destroy()
+    ScreenGui:Destroy()
+end
 
-        tabData.button = CreateTabButton(config, tabData)
+function TabLib:GetGui()
+    return ScreenGui
+end
 
-        state.tabs[tabData.index] = tabData
-        state.tabOrder = state.tabOrder + 1
-
-        return {
-                Section = function(sectionConfig)
-                    local section = CreateSection(sectionConfig, tabData)
-                    table.insert(tabData.sections, section)
-                    table.insert(tabData.children, section)
-                    return {
-                        Toggle = function(toggleConfig)
-                            return CreateToggle(toggleConfig, section)
-                        end,
-                        Slider = function(sliderConfig)
-                            return CreateSlider(sliderConfig, section)
-                        end,
-                        Button = function(buttonConfig)
-                            return CreateButton(buttonConfig, section)
-                        end,
-                        Label = function(labelConfig)
-                            return CreateLabel(labelConfig, section)
-                        end,
-                        Divider = function()
-                            return CreateDivider({}, section)
-                        end,
-                    }
-                end,
-            }
-    end
-
-    function API:Destroy()
-        ScreenGui:Destroy()
-    end
-
-    function API:GetGui()
-        return ScreenGui
-    end
-
-    function API:SetAccentColor(color)
-        Theme.AccentColor = color
-    end
-
-    return API
+function TabLib:SetAccentColor(color)
+    Theme.AccentColor = color
 end
 
 return TabLib
