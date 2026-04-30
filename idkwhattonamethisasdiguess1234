@@ -1,0 +1,453 @@
+local cloneref = cloneref or function(x) return x end
+local CoreGui = cloneref(game:GetService("CoreGui"))
+
+local Library = {}
+Library.__index = Library
+
+local Accent       = Color3.fromRGB(141, 153, 252)
+local BgColor      = Color3.fromRGB(26,  26,  26)
+local TabBg        = Color3.fromRGB(21,  23,  24)
+local SectionBg    = Color3.fromRGB(21,  23,  24)
+local TextOn       = Color3.fromRGB(141, 153, 252)
+local TextOff      = Color3.fromRGB(191, 194, 193)
+local IconOn       = Color3.fromRGB(141, 153, 252)
+local IconOff      = Color3.fromRGB(137, 139, 140)
+
+-- Resolves "rbxassetid://..." or plain numeric strings into a valid asset URL.
+local function resolveAsset(icon)
+    if type(icon) ~= "string" then return "" end
+    if icon:match("^rbxassetid://") then return icon end
+    if icon:match("^%d+$") then return "rbxassetid://" .. icon end
+    return ""
+end
+
+function Library:Window(params)
+    params = params or {}
+
+    local Window = { Tabs = {}, Items = {} }
+
+    -- ScreenGui
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.ResetOnSpawn   = false
+    ScreenGui.Parent         = CoreGui
+
+    -- MainFrame
+    local MainFrame = Instance.new("Frame")
+    MainFrame.AnchorPoint      = Vector2.new(0.5, 0.5)
+    MainFrame.Position         = UDim2.fromScale(0.5, 0.5)
+    MainFrame.Size             = UDim2.fromOffset(670, 511)
+    MainFrame.BackgroundColor3 = BgColor
+    MainFrame.Parent           = ScreenGui
+
+    do
+        local g = Instance.new("UIGradient")
+        g.Rotation     = -90
+        g.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 0.16875),
+        })
+        g.Parent = MainFrame
+        Instance.new("UICorner").Parent = MainFrame
+    end
+
+    -- Tab sidebar
+    local TabHolder = Instance.new("Frame")
+    TabHolder.BackgroundColor3 = TabBg
+    TabHolder.Size             = UDim2.fromOffset(90, 511)
+    TabHolder.Parent           = MainFrame
+
+    do
+        Instance.new("UICorner").Parent = TabHolder
+
+        -- Mask the right-side rounded corners so the sidebar sits flush against content
+        for _, pos in ipairs({ UDim2.new(1, -14, 0, 0), UDim2.new(1, -14, 1, -14) }) do
+            local f = Instance.new("Frame")
+            f.BackgroundColor3 = TabBg
+            f.BorderSizePixel  = 0
+            f.Position         = pos
+            f.Size             = UDim2.fromOffset(14, 14)
+            f.Parent           = TabHolder
+        end
+
+        -- Hub icon
+        local HubIcon = Instance.new("ImageLabel")
+        HubIcon.BackgroundTransparency = 1
+        HubIcon.Image    = resolveAsset(params.logo or "92164236584053")
+        HubIcon.Position = UDim2.new(0.149426, 0, 0, 5)
+        HubIcon.Size     = UDim2.fromOffset(58, 58)
+        HubIcon.Parent   = TabHolder
+    end
+
+    -- Container for tab icon buttons, below the logo
+    local TabList = Instance.new("Frame")
+    TabList.BackgroundTransparency = 1
+    TabList.Position               = UDim2.fromOffset(0, 70)
+    TabList.Size                   = UDim2.new(1, 0, 1, -70)
+    TabList.Parent                 = TabHolder
+
+    do
+        local layout = Instance.new("UIListLayout")
+        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        layout.Padding             = UDim.new(0, 10)
+        layout.SortOrder           = Enum.SortOrder.LayoutOrder
+        layout.Parent              = TabList
+
+        local pad = Instance.new("UIPadding")
+        pad.PaddingTop = UDim.new(0, 10)
+        pad.Parent     = TabList
+    end
+
+    -- Content area to the right of the sidebar
+    local ContentArea = Instance.new("Frame")
+    ContentArea.BackgroundTransparency = 1
+    ContentArea.Position               = UDim2.fromOffset(90, 0)
+    ContentArea.Size                   = UDim2.new(1, -90, 1, 0)
+    ContentArea.Parent                 = MainFrame
+
+    Window.Items = {
+        ScreenGui   = ScreenGui,
+        MainFrame   = MainFrame,
+        TabHolder   = TabHolder,
+        TabList     = TabList,
+        ContentArea = ContentArea,
+    }
+
+    -- ─── Tab ────────────────────────────────────────────────────────────────
+
+    function Window:Tab(tabParams)
+        tabParams = tabParams or {}
+
+        local Tab = {
+            Name     = tabParams.name or tabParams.Name or "Tab",
+            Icon     = tabParams.icon or tabParams.Icon or "",
+            SubPages = {},
+            Items    = {},
+            Active   = false,
+        }
+
+        local isFirst = #Window.Tabs == 0
+
+        -- Icon button frame
+        local TabBtn = Instance.new("Frame")
+        TabBtn.BackgroundColor3  = Color3.new(1, 1, 1)
+        TabBtn.ClipsDescendants  = true
+        TabBtn.Size              = UDim2.fromOffset(49, 49)
+        TabBtn.BackgroundTransparency = isFirst and 0 or 1
+        TabBtn.Parent            = TabList
+        Instance.new("UICorner").Parent = TabBtn
+
+        local TabGradient = Instance.new("UIGradient")
+        TabGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 51, 62)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 30, 31)),
+        })
+        TabGradient.Enabled = isFirst
+        TabGradient.Parent  = TabBtn
+
+        -- Left-edge accent line (visible when selected)
+        local TabLine = Instance.new("Frame")
+        TabLine.BackgroundColor3 = Accent
+        TabLine.Position         = UDim2.fromOffset(-4, 12)
+        TabLine.Size             = UDim2.fromOffset(7, 26)
+        TabLine.Visible          = isFirst
+        do
+            local lc = Instance.new("UICorner")
+            lc.CornerRadius = UDim.new(0, 5)
+            lc.Parent       = TabLine
+        end
+        TabLine.Parent = TabBtn
+
+        -- Tab icon (asset IDs only; lucide icons are unsupported in this library)
+        local IconImg = Instance.new("ImageLabel")
+        IconImg.BackgroundTransparency = 1
+        IconImg.Size        = UDim2.fromOffset(18, 18)
+        IconImg.AnchorPoint = Vector2.new(0.5, 0.5)
+        IconImg.Position    = UDim2.fromScale(0.5, 0.5)
+        IconImg.ImageColor3 = isFirst and IconOn or IconOff
+        IconImg.Image       = resolveAsset(Tab.Icon)
+        IconImg.Parent      = TabBtn
+
+        -- Transparent click catcher
+        local ClickBtn = Instance.new("TextButton")
+        ClickBtn.BackgroundTransparency = 1
+        ClickBtn.Size   = UDim2.fromScale(1, 1)
+        ClickBtn.Text   = ""
+        ClickBtn.ZIndex = 2
+        ClickBtn.Parent = TabBtn
+
+        -- Full-size page frame shown/hidden when tab is active
+        local Page = Instance.new("Frame")
+        Page.BackgroundTransparency = 1
+        Page.Size    = UDim2.new(1, 0, 1, 0)
+        Page.Visible = isFirst
+        Page.Parent  = ContentArea
+
+        -- Horizontal scrolling subpage selector bar
+        local SubPagesBar = Instance.new("ScrollingFrame")
+        SubPagesBar.BackgroundTransparency = 1
+        SubPagesBar.Position               = UDim2.fromOffset(5, 5)
+        SubPagesBar.Size                   = UDim2.new(1, -10, 0, 35)
+        SubPagesBar.ScrollBarThickness     = 0
+        SubPagesBar.ScrollingDirection     = Enum.ScrollingDirection.X
+        SubPagesBar.AutomaticCanvasSize    = Enum.AutomaticSize.X
+        SubPagesBar.CanvasSize             = UDim2.new(0, 0, 0, 0)
+        SubPagesBar.Parent                 = Page
+
+        do
+            local l = Instance.new("UIListLayout")
+            l.FillDirection      = Enum.FillDirection.Horizontal
+            l.VerticalAlignment  = Enum.VerticalAlignment.Center
+            l.Padding            = UDim.new(0, 8)
+            l.SortOrder          = Enum.SortOrder.LayoutOrder
+            l.Parent             = SubPagesBar
+        end
+
+        -- Area below the subpage bar where subpage content is rendered
+        local SubPageArea = Instance.new("Frame")
+        SubPageArea.BackgroundTransparency = 1
+        SubPageArea.Position               = UDim2.fromOffset(0, 45)
+        SubPageArea.Size                   = UDim2.new(1, 0, 1, -45)
+        SubPageArea.Parent                 = Page
+
+        Tab.Items = {
+            TabBtn      = TabBtn,
+            TabGradient = TabGradient,
+            TabLine     = TabLine,
+            IconImg     = IconImg,
+            Page        = Page,
+            SubPagesBar = SubPagesBar,
+            SubPageArea = SubPageArea,
+        }
+
+        if isFirst then Tab.Active = true end
+
+        -- Activate / deactivate helpers
+        local function setActive(bool)
+            Tab.Active = bool
+            Tab.Items.Page.Visible                   = bool
+            Tab.Items.TabBtn.BackgroundTransparency  = bool and 0 or 1
+            Tab.Items.TabGradient.Enabled            = bool
+            Tab.Items.TabLine.Visible                = bool
+            Tab.Items.IconImg.ImageColor3            = bool and IconOn or IconOff
+        end
+
+        ClickBtn.MouseButton1Down:Connect(function()
+            if Tab.Active then return end
+            for _, t in ipairs(Window.Tabs) do
+                t.Items.Page.Visible                   = false
+                t.Items.TabBtn.BackgroundTransparency  = 1
+                t.Items.TabGradient.Enabled            = false
+                t.Items.TabLine.Visible                = false
+                t.Items.IconImg.ImageColor3            = IconOff
+                t.Active                               = false
+            end
+            setActive(true)
+        end)
+
+        -- ─── SubPage ────────────────────────────────────────────────────────
+
+        function Tab:SubPage(spParams)
+            spParams = spParams or {}
+
+            local SubPage = {
+                Name   = spParams.name or spParams.Name or "",
+                Items  = {},
+                Active = false,
+            }
+
+            local isFirstSP = #Tab.SubPages == 0
+
+            -- Subpage selector pill
+            local SPFrame = Instance.new("Frame")
+            SPFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+            SPFrame.AutomaticSize    = Enum.AutomaticSize.X
+            SPFrame.Size             = UDim2.fromOffset(0, 35)
+            SPFrame.Parent           = SubPagesBar
+
+            do
+                local corner = Instance.new("UICorner")
+                corner.CornerRadius = UDim.new(0, 3)
+                corner.Parent       = SPFrame
+
+                local grad = Instance.new("UIGradient")
+                grad.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(43, 46, 47)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 31, 35)),
+                })
+                grad.Parent = SPFrame
+
+                local pad = Instance.new("UIPadding")
+                pad.PaddingLeft  = UDim.new(0, 10)
+                pad.PaddingRight = UDim.new(0, 10)
+                pad.Parent       = SPFrame
+            end
+
+            local SPText = Instance.new("TextLabel")
+            SPText.BackgroundTransparency = 1
+            SPText.FontFace  = Font.new("rbxasset://fonts/families/SourceSansPro.json")
+            SPText.Size      = UDim2.new(1, 0, 1, 0)
+            SPText.Text      = SubPage.Name
+            SPText.TextColor3 = isFirstSP and TextOn or TextOff
+            SPText.TextSize  = 19
+            SPText.Parent    = SPFrame
+
+            -- Transparent click catcher
+            local SPClick = Instance.new("TextButton")
+            SPClick.BackgroundTransparency = 1
+            SPClick.Size   = UDim2.fromScale(1, 1)
+            SPClick.Text   = ""
+            SPClick.ZIndex = 2
+            SPClick.Parent = SPFrame
+
+            -- Content frame for this subpage (two-column layout)
+            local SPContent = Instance.new("Frame")
+            SPContent.BackgroundTransparency = 1
+            SPContent.Size    = UDim2.new(1, 0, 1, 0)
+            SPContent.Visible = isFirstSP
+            SPContent.Parent  = SubPageArea
+
+            -- Two equally-wide scrolling columns
+            local columns = {}
+            do
+                local colLayout = Instance.new("UIListLayout")
+                colLayout.FillDirection  = Enum.FillDirection.Horizontal
+                colLayout.HorizontalFlex = Enum.UIFlexAlignment.Fill
+                colLayout.Padding        = UDim.new(0, 12)
+                colLayout.SortOrder      = Enum.SortOrder.LayoutOrder
+                colLayout.Parent         = SPContent
+
+                for i = 1, 2 do
+                    local col = Instance.new("ScrollingFrame")
+                    col.BackgroundTransparency = 1
+                    col.ScrollBarThickness     = 0
+                    col.AutomaticCanvasSize    = Enum.AutomaticSize.Y
+                    col.CanvasSize             = UDim2.new(0, 0, 0, 0)
+                    col.Size                   = UDim2.new(0.5, 0, 1, 0)
+                    col.Parent                 = SPContent
+
+                    local ll = Instance.new("UIListLayout")
+                    ll.Padding    = UDim.new(0, 10)
+                    ll.SortOrder  = Enum.SortOrder.LayoutOrder
+                    ll.Parent     = col
+
+                    local p = Instance.new("UIPadding")
+                    p.PaddingTop    = UDim.new(0, 8)
+                    p.PaddingBottom = UDim.new(0, 8)
+                    p.PaddingLeft   = UDim.new(0, 8)
+                    p.PaddingRight  = UDim.new(0, 8)
+                    p.Parent        = col
+
+                    columns[i] = col
+                end
+            end
+
+            SubPage.Items = {
+                SPFrame   = SPFrame,
+                SPText    = SPText,
+                SPContent = SPContent,
+                Columns   = columns,
+            }
+
+            if isFirstSP then SubPage.Active = true end
+
+            SPClick.MouseButton1Down:Connect(function()
+                if SubPage.Active then return end
+                for _, sp in ipairs(Tab.SubPages) do
+                    sp.Items.SPContent.Visible   = false
+                    sp.Items.SPText.TextColor3   = TextOff
+                    sp.Active                    = false
+                end
+                SubPage.Active                   = true
+                SubPage.Items.SPContent.Visible  = true
+                SubPage.Items.SPText.TextColor3  = TextOn
+            end)
+
+            -- ─── Section ────────────────────────────────────────────────────
+
+            function SubPage:Section(sParams)
+                sParams = sParams or {}
+
+                local Section = {
+                    Name  = sParams.name or sParams.Name or "Section",
+                    Side  = sParams.side or sParams.Side or 1,
+                    Items = {},
+                }
+
+                local col = SubPage.Items.Columns[Section.Side]
+                           or SubPage.Items.Columns[1]
+
+                -- Outer section frame
+                local SectionFrame = Instance.new("Frame")
+                SectionFrame.BackgroundColor3 = SectionBg
+                SectionFrame.ClipsDescendants = true
+                SectionFrame.Size             = UDim2.new(1, 0, 0, 0)
+                SectionFrame.AutomaticSize    = Enum.AutomaticSize.Y
+                SectionFrame.Parent           = col
+
+                do
+                    local corner = Instance.new("UICorner")
+                    corner.CornerRadius = UDim.new(0, 5)
+                    corner.Parent       = SectionFrame
+
+                    -- Accent glow strip along the top edge
+                    local UiGlow = Instance.new("Frame")
+                    UiGlow.BackgroundColor3 = Accent
+                    UiGlow.Size             = UDim2.new(1, 0, 0, 5)
+                    do
+                        local gc = Instance.new("UICorner")
+                        gc.CornerRadius = UDim.new(0, 5)
+                        gc.Parent       = UiGlow
+                    end
+                    UiGlow.Parent = SectionFrame
+
+                    -- Cover the lower half of the glow so only the top edge shows
+                    local HideGlow = Instance.new("Frame")
+                    HideGlow.BackgroundColor3 = SectionBg
+                    HideGlow.BorderSizePixel  = 0
+                    HideGlow.Position         = UDim2.fromOffset(0, 3)
+                    HideGlow.Size             = UDim2.new(1, 0, 0, 8)
+                    HideGlow.Parent           = SectionFrame
+
+                    -- Section name label
+                    local NameLabel = Instance.new("TextLabel")
+                    NameLabel.BackgroundTransparency = 1
+                    NameLabel.FontFace = Font.new(
+                        "rbxasset://fonts/families/SourceSansPro.json",
+                        Enum.FontWeight.Bold
+                    )
+                    NameLabel.Position        = UDim2.fromOffset(8, 3)
+                    NameLabel.Size            = UDim2.new(1, -8, 0, 30)
+                    NameLabel.Text            = Section.Name
+                    NameLabel.TextColor3      = TextOff
+                    NameLabel.TextSize        = 18
+                    NameLabel.TextXAlignment  = Enum.TextXAlignment.Left
+                    NameLabel.Parent          = SectionFrame
+
+                    -- Inner content frame (auto-sizes with children)
+                    local Content = Instance.new("Frame")
+                    Content.BackgroundTransparency = 1
+                    Content.Position               = UDim2.fromOffset(0, 33)
+                    Content.Size                   = UDim2.new(1, 0, 0, 0)
+                    Content.AutomaticSize          = Enum.AutomaticSize.Y
+                    Content.Parent                 = SectionFrame
+
+                    Section.Items.Content      = Content
+                    Section.Items.SectionFrame = SectionFrame
+                end
+
+                return Section
+            end
+
+            table.insert(Tab.SubPages, SubPage)
+            return SubPage
+        end
+
+        table.insert(Window.Tabs, Tab)
+        return Tab
+    end
+
+    return Window
+end
+
+return Library
