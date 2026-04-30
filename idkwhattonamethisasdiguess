@@ -402,7 +402,7 @@ function Library:CreateWindow(Params)
                 local SectionGlow = self:Create("Frame", {
                     Name = "UiGlow",
                     Parent = SectionFrame.Instance,
-                    BackgroundColor3 = self.Theme.Accent,
+                    BackgroundColor3 = Library.Theme.Accent,
                     Size = UDim2.fromOffset(273, 5),
                     ZIndex = 1
                 })
@@ -432,7 +432,7 @@ function Library:CreateWindow(Params)
                     Position = UDim2.fromOffset(-26, 3),
                     Size = UDim2.fromOffset(124, 30),
                     Text = Section.Name,
-                    TextColor3 = self.Theme.Text,
+                    TextColor3 = Library.Theme.Text,
                     TextSize = 18,
                     ZIndex = 2
                 })
@@ -471,12 +471,12 @@ function Library:CreateWindow(Params)
             end
 
             function SubPage:Select()
-                SubPageText.Instance.TextColor3 = self.Theme.TextSelected
+                SubPageText.Instance.TextColor3 = Library.Theme.TextSelected
                 SubPageText:Tween({Position = UDim2.new(0, 1, 0.029, -1)})
             end
 
             function SubPage:Deselect()
-                SubPageText.Instance.TextColor3 = self.Theme.Text
+                SubPageText.Instance.TextColor3 = Library.Theme.Text
                 SubPageText:Tween({Position = UDim2.new(0, -21, 0.029, -1)})
             end
 
@@ -503,7 +503,7 @@ function Library:CreateWindow(Params)
 
         function Tab:Select()
             TabButton.Instance.BackgroundTransparency = 0
-            TabIcon.Instance.ImageColor3 = self.Theme.Accent
+            TabIcon.Instance.ImageColor3 = Library.Theme.Accent
 
             local Gradient = self:Create("UIGradient", {
                 Name = "UIGradient",
@@ -517,7 +517,7 @@ function Library:CreateWindow(Params)
             local TabLine = self:Create("Frame", {
                 Name = "TabLine",
                 Parent = TabButton.Instance,
-                BackgroundColor3 = self.Theme.Accent,
+                BackgroundColor3 = Library.Theme.Accent,
                 Position = UDim2.fromOffset(-4, 12),
                 Size = UDim2.fromOffset(7, 26),
                 ZIndex = 2
@@ -544,7 +544,7 @@ function Library:CreateWindow(Params)
                 AnchorPoint = Vector2.new(0.5, 0.5),
                 BackgroundTransparency = 1,
                 Image = "rbxassetid://16389697796",
-                ImageColor3 = self.Theme.Accent,
+                ImageColor3 = Library.Theme.Accent,
                 Position = UDim2.fromScale(0.5, 0.5),
                 Size = UDim2.fromScale(1.5, 1.5),
                 ZIndex = 0
@@ -553,7 +553,7 @@ function Library:CreateWindow(Params)
 
         function Tab:Deselect()
             TabButton.Instance.BackgroundTransparency = 1
-            TabIcon.Instance.ImageColor3 = self.Theme.TabUnselected
+            TabIcon.Instance.ImageColor3 = Library.Theme.TabUnselected
 
             for _, Child in TabButton.Instance:GetChildren() do
                 if Child.Name == "TabLine" or Child.Name == "TabLineShadow" then
