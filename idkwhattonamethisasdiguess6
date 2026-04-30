@@ -1,0 +1,597 @@
+local Library = {}
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local CoreGui = cloneref(game:GetService("CoreGui"))
+
+gethui = gethui or function() return CoreGui end
+
+local AccentColor = Color3.fromRGB(141, 153, 252)
+local Font = Font.new("rbxasset://fonts/families/SourceSansPro.json")
+
+Library.__index = Library
+
+Library.Flags = {}
+Library.Connections = {}
+Library.Pages = {}
+Library.OpenFrames = {}
+Library.Theme = {
+    Background = Color3.fromRGB(26, 26, 26),
+    Section = Color3.fromRGB(21, 23, 24),
+    Text = Color3.fromRGB(191, 194, 193),
+    TextSelected = AccentColor,
+    Accent = AccentColor,
+    TabUnselected = Color3.fromRGB(137, 139, 140)
+}
+
+Library.Holder = nil
+Library.UnusedHolder = nil
+
+function Library:Create(Class, Properties)
+    local Data = {
+        Class = Class,
+        Instance = Instance.new(Class)
+    }
+
+    for Index, Property in Properties do
+        Data.Instance[Index] = Property
+    end
+
+    return setmetatable(Data, Library)
+end
+
+function Library:Connect(Signal, Callback)
+    local Connection
+
+    if self.Instance then
+        if self.Instance[Signal] then
+            Connection = self.Instance[Signal]:Connect(Callback)
+            table.insert(Library.Connections, Connection)
+        end
+    end
+
+    return Connection
+end
+
+function Library:Tween(Properties, Info, Callback)
+    local Object = self.Instance
+    Info = Info or TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
+    local NewTween = TweenService:Create(Object, Info, Properties)
+    NewTween:Play()
+
+    if Callback then
+        NewTween.Completed:Connect(Callback)
+    end
+
+    return NewTween
+end
+
+function Library:CreateShadow(Parent, Offset, Size, Transparency)
+    local ShadowHolder = self:Create("Frame", {
+        Name = "ShadowHolder",
+        Parent = Parent,
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(Offset.X, Offset.Y),
+        Size = UDim2.fromOffset(Size.X, Size.Y),
+        ZIndex = 0
+    })
+
+    local Shadow1 = self:Create("ImageLabel", {
+        Name = "umbraShadow",
+        Parent = ShadowHolder,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://1316045217",
+        ImageColor3 = AccentColor,
+        ImageTransparency = Transparency or 0.86,
+        Position = UDim2.fromScale(0.5, 0.5),
+        ScaleType = Enum.ScaleType.Slice,
+        Size = UDim2.new(1, 2, 1, 2),
+        SliceCenter = Rect.new(10, 10, 118, 118),
+        ZIndex = 0
+    })
+
+    local Shadow2 = self:Create("ImageLabel", {
+        Name = "penumbraShadow",
+        Parent = ShadowHolder,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://1316045217",
+        ImageColor3 = AccentColor,
+        ImageTransparency = Transparency or 0.86,
+        Position = UDim2.fromScale(0.5, 0.5),
+        ScaleType = Enum.ScaleType.Slice,
+        Size = UDim2.new(1, 2, 1, 2),
+        SliceCenter = Rect.new(10, 10, 118, 118),
+        ZIndex = 0
+    })
+
+    local Shadow3 = self:Create("ImageLabel", {
+        Name = "ambientShadow",
+        Parent = ShadowHolder,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://1316045217",
+        ImageColor3 = AccentColor,
+        ImageTransparency = Transparency or 0.86,
+        Position = UDim2.fromScale(0.5, 0.5),
+        ScaleType = Enum.ScaleType.Slice,
+        Size = UDim2.new(1, 2, 1, 2),
+        SliceCenter = Rect.new(10, 10, 118, 118),
+        ZIndex = 0
+    })
+
+    return ShadowHolder
+end
+
+function Library:CreateWindow(Params)
+    Params = Params or {}
+
+    local Window = {
+        Name = Params.Name or "Window",
+        Items = {},
+        TabButtons = {},
+        SubPages = {},
+        Sections = {}
+    }
+
+    local Holder = self:Create("ScreenGui", {
+        Name = self.Name or "UILibrary",
+        Parent = gethui(),
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    })
+
+    Library.Holder = Holder
+
+    local UnusedHolder = self:Create("ScreenGui", {
+        Name = "UnusedHolder",
+        Parent = gethui(),
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    })
+
+    Library.UnusedHolder = UnusedHolder
+
+    local MainFrame = self:Create("Frame", {
+        Name = "MainFrame",
+        Parent = Holder.Instance,
+        BackgroundColor3 = self.Theme.Background,
+        Position = UDim2.fromScale(0.288, 0.195),
+        Size = UDim2.fromOffset(670, 511),
+        ZIndex = 1
+    })
+
+    local MainGradient = self:Create("UIGradient", {
+        Name = "UIGradient",
+        Parent = MainFrame.Instance,
+        Rotation = -90,
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 0.16875)
+        })
+    })
+
+    local MainCorner = self:Create("UICorner", {
+        Name = "UICorner",
+        Parent = MainFrame.Instance
+    })
+
+    local TabHolder = self:Create("Frame", {
+        Name = "TabHolder",
+        Parent = Holder.Instance,
+        BackgroundColor3 = self.Theme.Section,
+        Position = UDim2.fromScale(0.288, 0.195),
+        Size = UDim2.fromOffset(90, 511),
+        ZIndex = 1
+    })
+
+    local TabCorner = self:Create("UICorner", {
+        Name = "UICorner",
+        Parent = TabHolder.Instance
+    })
+
+    local HideCorner1 = self:Create("Frame", {
+        Name = "HideCorner",
+        Parent = TabHolder.Instance,
+        BackgroundColor3 = self.Theme.Section,
+        BorderColor3 = Color3.new(),
+        BorderSizePixel = 0,
+        Position = UDim2.new(0.828, 1, 0.968, 0),
+        Size = UDim2.fromOffset(14, 14),
+        ZIndex = 2
+    })
+
+    local HideCorner2 = self:Create("Frame", {
+        Name = "HideCorner",
+        Parent = TabHolder.Instance,
+        BackgroundColor3 = self.Theme.Section,
+        BorderColor3 = Color3.new(),
+        BorderSizePixel = 0,
+        Position = UDim2.new(0.828, 1, -0.004, 2),
+        Size = UDim2.fromOffset(14, 14),
+        ZIndex = 2
+    })
+
+    local HubIcon = self:Create("ImageLabel", {
+        Name = "HubIcon",
+        Parent = TabHolder.Instance,
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://92164236584053",
+        Position = UDim2.fromScale(0.149, 0.030),
+        Size = UDim2.fromOffset(58, 58),
+        ZIndex = 2
+    })
+
+    Window.Items["Holder"] = Holder
+    Window.Items["MainFrame"] = MainFrame
+    Window.Items["TabHolder"] = TabHolder
+    Window.Items["UnusedHolder"] = UnusedHolder
+
+    local Dragging = false
+    local DragStart
+    local StartPos
+
+    MainFrame:Connect("InputBegan", function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            Dragging = true
+            DragStart = Input.Position
+            StartPos = MainFrame.Instance.Position
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(Input)
+        if Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
+            local Delta = Input.Position - DragStart
+            MainFrame.Instance.Position = UDim2.new(
+                StartPos.X.Scale,
+                StartPos.X.Offset + Delta.X,
+                StartPos.Y.Scale,
+                StartPos.Y.Offset + Delta.Y
+            )
+            TabHolder.Instance.Position = MainFrame.Instance.Position
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+            Dragging = false
+        end
+    end)
+
+    function Window:Tab(Params)
+        Params = Params or {}
+
+        local Tab = {
+            Name = Params.Name or "Tab",
+            Icon = Params.Icon or "rbxassetid://130969658865280",
+            Window = Window,
+            Button = nil,
+            SubPages = {}
+        }
+
+        local TabCount = #Window.TabButtons
+        local YOffset = 60 + (TabCount * 60)
+
+        local TabButton = self:Create("Frame", {
+            Name = "Tab" .. TabCount + 1 .. "UnSelected",
+            Parent = TabHolder.Instance,
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
+            Position = UDim2.new(0.207, 0, 0.197, YOffset),
+            Size = UDim2.fromOffset(49, 49),
+            ZIndex = 2
+        })
+
+        local TabIcon = self:Create("ImageLabel", {
+            Name = "Icon",
+            Parent = TabButton.Instance,
+            BackgroundTransparency = 1,
+            Image = Tab.Icon,
+            ImageColor3 = self.Theme.TabUnselected,
+            Position = UDim2.new(0.342, -1, 0.127, 9),
+            Size = UDim2.fromOffset(18, 18),
+            ZIndex = 2
+        })
+
+        local TabCorner = self:Create("UICorner", {
+            Name = "UICorner",
+            Parent = TabButton.Instance
+        })
+
+        Tab.Button = TabButton
+        Tab.Icon = TabIcon
+
+        function Tab:SubPage(Params)
+            Params = Params or {}
+
+            local SubPage = {
+                Name = Params.Name or "SubPage",
+                Tab = Tab,
+                Window = Window,
+                Button = nil,
+                Sections = {}
+            }
+
+            local SubPageCount = #Tab.SubPages
+            local XOffset = 15 + (SubPageCount * 105)
+
+            local SubPageButton = self:Create("Frame", {
+                Name = "SubPage" .. SubPageCount + 1 .. "(Selected)",
+                Parent = MainFrame.Instance,
+                BackgroundColor3 = Color3.new(1, 1, 1),
+                Position = UDim2.new(0.157, XOffset - 5, 0.03, -5),
+                Size = UDim2.fromOffset(105, 35),
+                ZIndex = 1
+            })
+
+            local SubPageCorner = self:Create("UICorner", {
+                Name = "UICorner",
+                Parent = SubPageButton.Instance,
+                CornerRadius = UDim.new(0, 3)
+            })
+
+            local SubPageGradient = self:Create("UIGradient", {
+                Name = "UIGradient",
+                Parent = SubPageButton.Instance,
+                Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(43, 46, 47)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 31, 35))
+                })
+            })
+
+            local SubPageText = self:Create("TextLabel", {
+                Name = "SectionName",
+                Parent = SubPageButton.Instance,
+                BackgroundTransparency = 1,
+                FontFace = Font,
+                Position = UDim2.new(0, 1, 0.029, -1),
+                Size = UDim2.fromOffset(103, 34),
+                Text = SubPage.Name,
+                TextColor3 = self.Theme.TextSelected,
+                TextSize = 19,
+                ZIndex = 2
+            })
+
+            local TextShadowHolder = self:Create("Frame", {
+                Name = "TextShadow",
+                Parent = SubPageButton.Instance,
+                BackgroundTransparency = 1,
+                Position = UDim2.fromScale(0.087, 0.235),
+                Size = UDim2.fromScale(0.835, 0.588),
+                ZIndex = 0
+            })
+
+            self:CreateShadow(TextShadowHolder.Instance, {X = 0, Y = 0}, {X = 0, Y = 0}, 0.9)
+
+            SubPage.Button = SubPageButton
+            SubPage.TextLabel = SubPageText
+
+            function SubPage:Section(Params)
+                Params = Params or {}
+
+                local Section = {
+                    Name = Params.Name or "Section",
+                    SubPage = SubPage,
+                    Window = Window,
+                    Items = {}
+                }
+
+                local SectionCount = #SubPage.Sections
+                local IsLeft = SectionCount % 2 == 0
+                local XPos = IsLeft and 100 or 385
+                local YOffset = math.floor(SectionCount / 2) * 210 + 60
+
+                local SectionFrame = self:Create("Frame", {
+                    Name = "Section" .. SectionCount + 1,
+                    Parent = MainFrame.Instance,
+                    BackgroundColor3 = self.Theme.Section,
+                    ClipsDescendants = true,
+                    Position = UDim2.fromOffset(XPos, YOffset),
+                    Size = UDim2.fromOffset(273, 200),
+                    ZIndex = 1
+                })
+
+                local SectionCorner = self:Create("UICorner", {
+                    Name = "UICorner",
+                    Parent = SectionFrame.Instance,
+                    CornerRadius = UDim.new(0, 5)
+                })
+
+                local SectionGlow = self:Create("Frame", {
+                    Name = "UiGlow",
+                    Parent = SectionFrame.Instance,
+                    BackgroundColor3 = self.Theme.Accent,
+                    Size = UDim2.fromOffset(273, 5),
+                    ZIndex = 1
+                })
+
+                local GlowCorner = self:Create("UICorner", {
+                    Name = "UICorner",
+                    Parent = SectionGlow.Instance,
+                    CornerRadius = UDim.new(0, 5)
+                })
+
+                local HideGlow = self:Create("Frame", {
+                    Name = "HideUiGlow",
+                    Parent = SectionFrame.Instance,
+                    BackgroundColor3 = self.Theme.Section,
+                    BorderColor3 = Color3.new(),
+                    BorderSizePixel = 0,
+                    Position = UDim2.new(-0.021, 0, 0.05, -7),
+                    Size = UDim2.fromOffset(283, 8),
+                    ZIndex = 2
+                })
+
+                local SectionText = self:Create("TextLabel", {
+                    Name = "SectionName",
+                    Parent = SectionFrame.Instance,
+                    BackgroundTransparency = 1,
+                    FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
+                    Position = UDim2.fromOffset(-26, 3),
+                    Size = UDim2.fromOffset(124, 30),
+                    Text = Section.Name,
+                    TextColor3 = self.Theme.Text,
+                    TextSize = 18,
+                    ZIndex = 2
+                })
+
+                local TextGlow = self:Create("Frame", {
+                    Name = "TextGlow",
+                    Parent = SectionFrame.Instance,
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(0.087, -23, 0.235, -37),
+                    Size = UDim2.new(-0.493, 200, 0.017, 15),
+                    ZIndex = 0
+                })
+
+                self:CreateShadow(TextGlow.Instance, {X = 0, Y = 0}, {X = 0, Y = 0}, 0.98)
+
+                local SectionShadowOffset = IsLeft and 41 or 325
+                local SectionShadow = self:Create("Frame", {
+                    Name = "SectionShadow",
+                    Parent = MainFrame.Instance,
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(0.087, SectionShadowOffset, 0.235, -66),
+                    Size = UDim2.new(0.185, 150, 0.017, 5),
+                    ZIndex = 0
+                })
+
+                self:CreateShadow(SectionShadow.Instance, {X = 0, Y = 0}, {X = 0, Y = 0}, 0.86)
+
+                Section.Items["Frame"] = SectionFrame
+                Section.Items["Glow"] = SectionGlow
+                Section.Items["Text"] = SectionText
+
+                table.insert(SubPage.Sections, Section)
+                table.insert(Window.Sections, Section)
+
+                return setmetatable(Section, Library)
+            end
+
+            function SubPage:Select()
+                SubPageText.Instance.TextColor3 = self.Theme.TextSelected
+                SubPageText:Tween({Position = UDim2.new(0, 1, 0.029, -1)})
+            end
+
+            function SubPage:Deselect()
+                SubPageText.Instance.TextColor3 = self.Theme.Text
+                SubPageText:Tween({Position = UDim2.new(0, -21, 0.029, -1)})
+            end
+
+            SubPageButton.Instance.InputBegan:Connect(function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    for _, OtherSubPage in Tab.SubPages do
+                        if OtherSubPage ~= SubPage then
+                            OtherSubPage:Deselect()
+                        end
+                    end
+                    SubPage:Select()
+                end
+            end)
+
+            table.insert(Tab.SubPages, SubPage)
+            table.insert(Window.SubPages, SubPage)
+
+            if #Tab.SubPages == 1 then
+                SubPage:Select()
+            end
+
+            return setmetatable(SubPage, Library)
+        end
+
+        function Tab:Select()
+            TabButton.Instance.BackgroundTransparency = 0
+            TabIcon.Instance.ImageColor3 = self.Theme.Accent
+
+            local Gradient = self:Create("UIGradient", {
+                Name = "UIGradient",
+                Parent = TabButton.Instance,
+                Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 51, 62)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(28, 30, 31))
+                })
+            })
+
+            local TabLine = self:Create("Frame", {
+                Name = "TabLine",
+                Parent = TabButton.Instance,
+                BackgroundColor3 = self.Theme.Accent,
+                Position = UDim2.fromOffset(-4, 12),
+                Size = UDim2.fromOffset(7, 26),
+                ZIndex = 2
+            })
+
+            local TabLineCorner = self:Create("UICorner", {
+                Name = "UICorner",
+                Parent = TabLine.Instance,
+                CornerRadius = UDim.new(0, 5)
+            })
+
+            local TabLineShadow = self:Create("Frame", {
+                Name = "TabLineShadow",
+                Parent = TabButton.Instance,
+                BackgroundTransparency = 1,
+                Position = UDim2.fromOffset(-4, 13),
+                Size = UDim2.fromOffset(7, 25),
+                ZIndex = 0
+            })
+
+            local TabLineImg = self:Create("ImageLabel", {
+                Name = "ShadowImage",
+                Parent = TabLineShadow.Instance,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                BackgroundTransparency = 1,
+                Image = "rbxassetid://16389697796",
+                ImageColor3 = self.Theme.Accent,
+                Position = UDim2.fromScale(0.5, 0.5),
+                Size = UDim2.fromScale(1.5, 1.5),
+                ZIndex = 0
+            })
+        end
+
+        function Tab:Deselect()
+            TabButton.Instance.BackgroundTransparency = 1
+            TabIcon.Instance.ImageColor3 = self.Theme.TabUnselected
+
+            for _, Child in TabButton.Instance:GetChildren() do
+                if Child.Name == "TabLine" or Child.Name == "TabLineShadow" then
+                    Child:Destroy()
+                end
+            end
+        end
+
+        TabButton.Instance.InputBegan:Connect(function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                for _, OtherTab in Window.TabButtons do
+                    if OtherTab ~= Tab then
+                        OtherTab:Deselect()
+                    end
+                end
+                Tab:Select()
+            end
+        end)
+
+        table.insert(Window.TabButtons, Tab)
+
+        if #Window.TabButtons == 1 then
+            Tab:Select()
+        end
+
+        return setmetatable(Tab, Library)
+    end
+
+    function Window:Destroy()
+        Holder.Instance:Destroy()
+        UnusedHolder.Instance:Destroy()
+        for _, Connection in Library.Connections do
+            Connection:Disconnect()
+        end
+    end
+
+    return setmetatable(Window, Library)
+end
+
+getgenv().Library = Library
+return Library
