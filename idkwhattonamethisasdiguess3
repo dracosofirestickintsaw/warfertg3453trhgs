@@ -1,0 +1,611 @@
+local TweenService   = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Players        = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local function Tween(instance, info, props)
+	TweenService:Create(instance, info, props):Play()
+end
+
+local FAST = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local ACCENT   = Color3.fromRGB(141, 153, 252)
+local SELECTED_BG_START = Color3.fromRGB(50,  51,  62)
+local SELECTED_BG_END   = Color3.fromRGB(28,  30,  31)
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ScreenGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+MainFrame.Position = UDim2.fromScale(0.287726, 0.19546)
+MainFrame.Size = UDim2.fromOffset(670, 511)
+MainFrame.Parent = ScreenGui
+
+local UIGradient = Instance.new("UIGradient")
+UIGradient.Rotation = -90
+UIGradient.Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0),
+	NumberSequenceKeypoint.new(1, 0.16875),
+})
+UIGradient.Parent = MainFrame
+
+local UICorner = Instance.new("UICorner")
+UICorner.Parent = MainFrame
+
+local ContentHolder = Instance.new("Frame")
+ContentHolder.Name = "ContentHolder"
+ContentHolder.BackgroundTransparency = 1
+ContentHolder.Position = UDim2.fromOffset(90, 0)
+ContentHolder.Size     = UDim2.new(1, -90, 1, 0)
+ContentHolder.ClipsDescendants = true
+ContentHolder.Parent = MainFrame
+
+local TabHolder = Instance.new("Frame")
+TabHolder.Name = "TabHolder"
+TabHolder.BackgroundColor3 = Color3.fromRGB(21, 23, 24)
+TabHolder.Position = UDim2.fromOffset(0, 0)
+TabHolder.Size = UDim2.fromOffset(90, 511)
+TabHolder.ZIndex = 2
+TabHolder.Parent = MainFrame
+
+local UICorner1 = Instance.new("UICorner")
+UICorner1.Parent = TabHolder
+
+local HideCorner = Instance.new("Frame")
+HideCorner.Name = "HideCorner"
+HideCorner.BackgroundColor3 = Color3.fromRGB(21, 23, 24)
+HideCorner.BorderSizePixel = 0
+HideCorner.Position = UDim2.new(0.828, 1, 0.967695, 0)
+HideCorner.Size = UDim2.fromOffset(14, 14)
+HideCorner.Parent = TabHolder
+
+local HideCorner1 = Instance.new("Frame")
+HideCorner1.Name = "HideCorner1"
+HideCorner1.BackgroundColor3 = Color3.fromRGB(21, 23, 24)
+HideCorner1.BorderSizePixel = 0
+HideCorner1.Position = UDim2.new(0.827963, 1, -0.004, 2)
+HideCorner1.Size = UDim2.fromOffset(14, 14)
+HideCorner1.Parent = TabHolder
+
+local HubIcon = Instance.new("ImageLabel")
+HubIcon.Name = "HubIcon"
+HubIcon.BackgroundTransparency = 1
+HubIcon.Image = "rbxassetid://92164236584053"
+HubIcon.Position = UDim2.fromScale(0.149426, 0.0303688)
+HubIcon.Size = UDim2.fromOffset(58, 58)
+HubIcon.Parent = TabHolder
+
+local FIRST_TAB_Y_OFFSET = -17
+local TAB_STEP = 60
+
+local function makeTab(index, icon)
+	local yOffset = FIRST_TAB_Y_OFFSET + (index - 1) * TAB_STEP
+	local tabFrame = Instance.new("Frame")
+	tabFrame.Name = "Tab" .. index
+	tabFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+	tabFrame.BackgroundTransparency = 1
+	tabFrame.ClipsDescendants = true
+	tabFrame.Position = UDim2.new(0.206897, 0, 0.197, yOffset)
+	tabFrame.Size = UDim2.fromOffset(49, 49)
+	tabFrame.Parent = TabHolder
+
+	local tabCorner = Instance.new("UICorner")
+	tabCorner.Parent = tabFrame
+
+	local tabGradient = Instance.new("UIGradient")
+	tabGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, SELECTED_BG_START),
+		ColorSequenceKeypoint.new(1, SELECTED_BG_END),
+	})
+	tabGradient.Parent = tabFrame
+
+	local tabLine = Instance.new("Frame")
+	tabLine.Name = "TabLine"
+	tabLine.BackgroundColor3 = ACCENT
+	tabLine.BackgroundTransparency = 1
+	tabLine.Position = UDim2.fromOffset(-4, 12)
+	tabLine.Size = UDim2.fromOffset(7, 26)
+	tabLine.Parent = tabFrame
+
+	local tabLineCorner = Instance.new("UICorner")
+	tabLineCorner.CornerRadius = UDim.new(0, 5)
+	tabLineCorner.Parent = tabLine
+
+	local shadowFrame = Instance.new("Frame")
+	shadowFrame.BackgroundTransparency = 1
+	shadowFrame.Position = UDim2.fromOffset(-4, 13)
+	shadowFrame.Size = UDim2.fromOffset(7, 25)
+	shadowFrame.ZIndex = 0
+	shadowFrame.Parent = tabFrame
+
+	local shadowImg = Instance.new("ImageLabel")
+	shadowImg.AnchorPoint = Vector2.new(0.5, 0.5)
+	shadowImg.BackgroundTransparency = 1
+	shadowImg.Image = "rbxassetid://16389697796"
+	shadowImg.ImageColor3 = ACCENT
+	shadowImg.ImageTransparency = 1
+	shadowImg.Position = UDim2.fromScale(0.5, 0.5)
+	shadowImg.Size = UDim2.fromScale(1.5, 1.5)
+	shadowImg.ZIndex = 0
+	shadowImg.Parent = shadowFrame
+
+	local iconImg = Instance.new("ImageLabel")
+	iconImg.Name = "Icon"
+	iconImg.BackgroundTransparency = 1
+	iconImg.Image = icon
+	iconImg.ImageColor3 = Color3.fromRGB(137, 139, 140)
+	iconImg.ImageTransparency = 0
+	iconImg.Position = UDim2.new(0.342408, -1, 0.127408, 9)
+	iconImg.Size = UDim2.fromOffset(18, 18)
+	iconImg.Parent = tabFrame
+
+	local btn = Instance.new("TextButton")
+	btn.BackgroundTransparency = 1
+	btn.BorderSizePixel = 0
+	btn.Text = ""
+	btn.Size = UDim2.fromScale(1, 1)
+	btn.ZIndex = 5
+	btn.Parent = tabFrame
+
+	local contentFrame = Instance.new("Frame")
+	contentFrame.Name = "TabContent" .. index
+	contentFrame.BackgroundTransparency = 1
+	contentFrame.Size = UDim2.fromScale(1, 1)
+	contentFrame.Visible = false
+	contentFrame.Parent = ContentHolder
+
+	local function setActive(active)
+		Tween(tabFrame, FAST, {
+			BackgroundTransparency = active and 0 or 1,
+		})
+		Tween(tabLine, FAST, {
+			BackgroundTransparency = active and 0 or 1,
+		})
+		Tween(shadowImg, FAST, {
+			ImageTransparency = active and 0 or 1,
+		})
+		Tween(iconImg, FAST, {
+			ImageTransparency = active and 0 or 0.5,
+			ImageColor3 = active and ACCENT or Color3.fromRGB(137, 139, 140),
+		})
+		contentFrame.Visible = active
+	end
+	return {
+		button       = btn,
+		contentFrame = contentFrame,
+		setActive    = setActive,
+	}
+end
+
+local TAB_ICONS = {
+	"rbxassetid://130969658865280",
+	"rbxassetid://130969658865280",
+	"rbxassetid://130969658865280",
+	"rbxassetid://130969658865280",
+	"rbxassetid://130969658865280",
+	"rbxassetid://130969658865280",
+	"rbxassetid://130969658865280",
+}
+
+local tabs = {}
+for i, icon in ipairs(TAB_ICONS) do
+	tabs[i] = makeTab(i, icon)
+end
+
+local function selectTab(targetIndex)
+	for i, tab in ipairs(tabs) do
+		tab.setActive(i == targetIndex)
+	end
+end
+
+for i, tab in ipairs(tabs) do
+	tab.button.MouseButton1Click:Connect(function()
+		selectTab(i)
+	end)
+end
+
+selectTab(1)
+
+local SECTION_NAMES = {"enviroment", "misc", "players", "visual"}
+local SECTION_SIZES = {
+	UDim2.fromOffset(105, 35),
+	UDim2.fromOffset(60, 35),
+	UDim2.fromOffset(82, 35),
+	UDim2.fromOffset(68, 35),
+}
+local SECTION_POSITIONS = {
+	UDim2.new(0.157, -5, 0.03, -5),
+	UDim2.new(0.157, 98, 0.03, -5),
+	UDim2.new(0.161, 152, 0.03, -5),
+	UDim2.new(0.239, 179, 0.03, -5),
+}
+local SECTION_TEXT_POSITIONS = {
+	UDim2.new(0, 1, 0.029, -1),
+	UDim2.new(0, -21, 0.029, -1),
+	UDim2.new(0.12683, -21, 0.0290004, -1),
+	UDim2.new(0.0443331, -21, 0.0290004, -1),
+}
+
+local function makeSection(index)
+	local sectionFrame = Instance.new("Frame")
+	sectionFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+	sectionFrame.Position = SECTION_POSITIONS[index]
+	sectionFrame.Size = SECTION_SIZES[index]
+	sectionFrame.Parent = MainFrame
+
+	local sectionCorner = Instance.new("UICorner")
+	sectionCorner.CornerRadius = UDim.new(0, 3)
+	sectionCorner.Parent = sectionFrame
+
+	local sectionGradient = Instance.new("UIGradient")
+	sectionGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(43, 46, 47)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 31, 35)),
+	})
+	sectionGradient.Parent = sectionFrame
+
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json")
+	label.Position = SECTION_TEXT_POSITIONS[index]
+	label.Size = UDim2.fromOffset(103, 34)
+	label.Text = SECTION_NAMES[index]
+	label.TextColor3 = Color3.fromRGB(191, 194, 193)
+	label.TextSize = 19
+	label.Parent = sectionFrame
+
+	local shadowHolder = Instance.new("Frame")
+	shadowHolder.BackgroundTransparency = 1
+	shadowHolder.AnchorPoint = Vector2.new(0.5, 0.5)
+	shadowHolder.Position = UDim2.new(0.5, 0, 0.5, 2)
+	shadowHolder.Size = UDim2.fromOffset(0, 0)
+	shadowHolder.ZIndex = 0
+	shadowHolder.Parent = label
+
+	local function updateShadowSize()
+		local b = label.TextBounds
+		shadowHolder.Size = UDim2.fromOffset(b.X, b.Y)
+	end
+	label:GetPropertyChangedSignal("TextBounds"):Connect(updateShadowSize)
+	task.defer(updateShadowSize)
+
+	local umbraShadow = Instance.new("ImageLabel")
+	umbraShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+	umbraShadow.BackgroundTransparency = 1
+	umbraShadow.Image = "rbxassetid://1316045217"
+	umbraShadow.ImageColor3 = ACCENT
+	umbraShadow.ImageTransparency = 1
+	umbraShadow.Position = UDim2.fromScale(0.5, 0.5)
+	umbraShadow.ScaleType = Enum.ScaleType.Slice
+	umbraShadow.Size = UDim2.new(1, 2, 1, 2)
+	umbraShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+	umbraShadow.ZIndex = 0
+	umbraShadow.Parent = shadowHolder
+
+	local penumbraShadow = Instance.new("ImageLabel")
+	penumbraShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+	penumbraShadow.BackgroundTransparency = 1
+	penumbraShadow.Image = "rbxassetid://1316045217"
+	penumbraShadow.ImageColor3 = ACCENT
+	penumbraShadow.ImageTransparency = 1
+	penumbraShadow.Position = UDim2.fromScale(0.5, 0.5)
+	penumbraShadow.ScaleType = Enum.ScaleType.Slice
+	penumbraShadow.Size = UDim2.new(1, 2, 1, 2)
+	penumbraShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+	penumbraShadow.ZIndex = 0
+	penumbraShadow.Parent = shadowHolder
+
+	local ambientShadow = Instance.new("ImageLabel")
+	ambientShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+	ambientShadow.BackgroundTransparency = 1
+	ambientShadow.Image = "rbxassetid://1316045217"
+	ambientShadow.ImageColor3 = ACCENT
+	ambientShadow.ImageTransparency = 1
+	ambientShadow.Position = UDim2.fromScale(0.5, 0.5)
+	ambientShadow.ScaleType = Enum.ScaleType.Slice
+	ambientShadow.Size = UDim2.new(1, 2, 1, 2)
+	ambientShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+	ambientShadow.ZIndex = 0
+	ambientShadow.Parent = shadowHolder
+
+	local btn = Instance.new("TextButton")
+	btn.BackgroundTransparency = 1
+	btn.BorderSizePixel = 0
+	btn.Text = ""
+	btn.Size = UDim2.fromScale(1, 1)
+	btn.ZIndex = 5
+	btn.Parent = sectionFrame
+
+	local function setActive(active)
+		Tween(label, FAST, {
+			TextColor3 = active and ACCENT or Color3.fromRGB(191, 194, 193),
+		})
+		Tween(umbraShadow, FAST, { ImageTransparency = active and 0.92 or 1 })
+		Tween(penumbraShadow, FAST, { ImageTransparency = active and 0.93 or 1 })
+		Tween(ambientShadow, FAST, { ImageTransparency = active and 0.9 or 1 })
+	end
+
+	return { button = btn, setActive = setActive }
+end
+
+local sections = {}
+for i = 1, #SECTION_NAMES do
+	sections[i] = makeSection(i)
+end
+
+local function selectSection(targetIndex)
+	for i, section in ipairs(sections) do
+		section.setActive(i == targetIndex)
+	end
+end
+
+for i, section in ipairs(sections) do
+	section.button.MouseButton1Click:Connect(function()
+		selectSection(i)
+	end)
+end
+
+selectSection(1)
+
+local dragging   = false
+local dragStart  = nil
+local startPos   = nil
+local dragBtn = Instance.new("TextButton")
+dragBtn.BackgroundTransparency = 1
+dragBtn.BorderSizePixel = 0
+dragBtn.Text = ""
+dragBtn.Size = UDim2.fromScale(1, 1)
+dragBtn.ZIndex = 10
+dragBtn.Parent = HubIcon
+dragBtn.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+		dragging  = true
+		dragStart = input.Position
+		startPos  = MainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if not dragging then return end
+	if input.UserInputType ~= Enum.UserInputType.MouseMovement
+		and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+	local delta = input.Position - dragStart
+	TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+		Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+	}):Play()
+end)
+
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+
+local camera = workspace.CurrentCamera
+local MTREL = "Glass"
+local wedgeguid = HttpService:GenerateGUID(true)
+local acrylicBlur = true
+local unloaded = false
+local BlurTarget = MainFrame
+
+local DepthOfField
+
+for _, v in pairs(Lighting:GetChildren()) do
+	if not v:IsA("DepthOfFieldEffect") and v:HasTag(".") then
+		DepthOfField = Instance.new("DepthOfFieldEffect")
+		DepthOfField.FarIntensity = 0
+		DepthOfField.FocusDistance = 51.6
+		DepthOfField.InFocusRadius = 50
+		DepthOfField.NearIntensity = 1
+		DepthOfField.Name = HttpService:GenerateGUID(true)
+		DepthOfField:AddTag(".")
+	elseif v:IsA("DepthOfFieldEffect") and v:HasTag(".") then
+		DepthOfField = v
+	end
+end
+
+if not DepthOfField then
+	DepthOfField = Instance.new("DepthOfFieldEffect")
+	DepthOfField.FarIntensity = 0
+	DepthOfField.FocusDistance = 51.6
+	DepthOfField.InFocusRadius = 50
+	DepthOfField.NearIntensity = 1
+	DepthOfField.Name = HttpService:GenerateGUID(true)
+	DepthOfField:AddTag(".")
+end
+
+local frame = Instance.new("Frame")
+frame.Parent = BlurTarget
+frame.Size = UDim2.new(0.97, 0, 0.97, 0)
+frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+frame.AnchorPoint = Vector2.new(0.5, 0.5)
+frame.BackgroundTransparency = 1
+frame.Name = HttpService:GenerateGUID(true)
+
+do
+	local function IsNotNaN(x)
+		return x == x
+	end
+	local continue = IsNotNaN(camera:ScreenPointToRay(0, 0).Origin.x)
+	while not continue do
+		RunService.RenderStepped:Wait()
+		continue = IsNotNaN(camera:ScreenPointToRay(0, 0).Origin.x)
+	end
+end
+
+local DrawQuad do
+	local acos, max, pi, sqrt = math.acos, math.max, math.pi, math.sqrt
+	local sz = 0.2
+
+	local function DrawTriangle(v1, v2, v3, p0, p1)
+		local s1 = (v1 - v2).magnitude
+		local s2 = (v2 - v3).magnitude
+		local s3 = (v3 - v1).magnitude
+		local smax = max(s1, s2, s3)
+		local A, B, C
+		if s1 == smax then
+			A, B, C = v1, v2, v3
+		elseif s2 == smax then
+			A, B, C = v2, v3, v1
+		elseif s3 == smax then
+			A, B, C = v3, v1, v2
+		end
+
+		local para = ((B - A).x*(C - A).x + (B - A).y*(C - A).y + (B - A).z*(C - A).z) / (A - B).magnitude
+		local perp = sqrt((C - A).magnitude^2 - para * para)
+		local dif_para = (A - B).magnitude - para
+
+		local st = CFrame.new(B, A)
+		local za = CFrame.Angles(pi / 2, 0, 0)
+		local cf0 = st
+
+		local Top_Look = (cf0 * za).lookVector
+		local Mid_Point = A + CFrame.new(A, B).lookVector * para
+		local Needed_Look = CFrame.new(Mid_Point, C).lookVector
+		local dot = Top_Look.x*Needed_Look.x + Top_Look.y*Needed_Look.y + Top_Look.z*Needed_Look.z
+		local ac = CFrame.Angles(0, 0, acos(dot))
+
+		cf0 = cf0 * ac
+		if ((cf0 * za).lookVector - Needed_Look).magnitude > 0.01 then
+			cf0 = cf0 * CFrame.Angles(0, 0, -2 * acos(dot))
+		end
+		cf0 = cf0 * CFrame.new(0, perp / 2, -(dif_para + para / 2))
+
+		local cf1 = st * ac * CFrame.Angles(0, pi, 0)
+		if ((cf1 * za).lookVector - Needed_Look).magnitude > 0.01 then
+			cf1 = cf1 * CFrame.Angles(0, 0, 2 * acos(dot))
+		end
+		cf1 = cf1 * CFrame.new(0, perp / 2, dif_para / 2)
+
+		if not p0 then
+			p0 = Instance.new("Part")
+			p0.FormFactor = "Custom"
+			p0.TopSurface = 0
+			p0.BottomSurface = 0
+			p0.Anchored = true
+			p0.CanCollide = false
+			p0.CastShadow = false
+			p0.Material = MTREL
+			p0.Size = Vector3.new(sz, sz, sz)
+			p0.Name = HttpService:GenerateGUID(true)
+			local mesh = Instance.new("SpecialMesh", p0)
+			mesh.MeshType = 2
+			mesh.Name = wedgeguid
+		end
+		p0[wedgeguid].Scale = Vector3.new(0, perp / sz, para / sz)
+		p0.CFrame = cf0
+
+		if not p1 then
+			p1 = p0:Clone()
+		end
+		p1[wedgeguid].Scale = Vector3.new(0, perp / sz, dif_para / sz)
+		p1.CFrame = cf1
+
+		return p0, p1
+	end
+
+	function DrawQuad(v1, v2, v3, v4, parts)
+		parts[1], parts[2] = DrawTriangle(v1, v2, v3, parts[1], parts[2])
+		parts[3], parts[4] = DrawTriangle(v3, v2, v4, parts[3], parts[4])
+	end
+end
+
+local parts = {}
+
+local parents = {}
+do
+	local function add(child)
+		if child:IsA("GuiObject") then
+			parents[#parents + 1] = child
+			add(child.Parent)
+		end
+	end
+	add(frame)
+end
+
+local function IsVisible(instance)
+	while instance do
+		if instance:IsA("GuiObject") then
+			if not instance.Visible then return false end
+		elseif instance:IsA("ScreenGui") then
+			if not instance.Enabled then return false end
+			break
+		end
+		instance = instance.Parent
+	end
+	return true
+end
+
+local function UpdateOrientation(fetchProps)
+	if not IsVisible(frame) or not acrylicBlur or unloaded then
+		for _, pt in pairs(parts) do
+			pt.Parent = nil
+		end
+		DepthOfField.Enabled = false
+		DepthOfField.Parent = nil
+		return
+	end
+
+	if not DepthOfField.Parent then
+		DepthOfField.Parent = Lighting
+	end
+	DepthOfField.Enabled = true
+
+	local properties = {
+		Transparency = 0.98,
+		BrickColor = BrickColor.new("Institutional white"),
+	}
+	local zIndex = 1 - 0.05 * frame.ZIndex
+
+	local tl, br = frame.AbsolutePosition, frame.AbsolutePosition + frame.AbsoluteSize
+	local tr, bl = Vector2.new(br.x, tl.y), Vector2.new(tl.x, br.y)
+
+	do
+		local rot = 0
+		for _, v in ipairs(parents) do
+			rot = rot + v.Rotation
+		end
+		if rot ~= 0 and rot % 180 ~= 0 then
+			local mid = tl:lerp(br, 0.5)
+			local s, c = math.sin(math.rad(rot)), math.cos(math.rad(rot))
+			tl = Vector2.new(c*(tl.x - mid.x) - s*(tl.y - mid.y), s*(tl.x - mid.x) + c*(tl.y - mid.y)) + mid
+			tr = Vector2.new(c*(tr.x - mid.x) - s*(tr.y - mid.y), s*(tr.x - mid.x) + c*(tr.y - mid.y)) + mid
+			bl = Vector2.new(c*(bl.x - mid.x) - s*(bl.y - mid.y), s*(bl.x - mid.x) + c*(bl.y - mid.y)) + mid
+			br = Vector2.new(c*(br.x - mid.x) - s*(br.y - mid.y), s*(br.x - mid.x) + c*(br.y - mid.y)) + mid
+		end
+	end
+
+	DrawQuad(
+		camera:ScreenPointToRay(tl.x, tl.y, zIndex).Origin,
+		camera:ScreenPointToRay(tr.x, tr.y, zIndex).Origin,
+		camera:ScreenPointToRay(bl.x, bl.y, zIndex).Origin,
+		camera:ScreenPointToRay(br.x, br.y, zIndex).Origin,
+		parts
+	)
+
+	if fetchProps then
+		for _, pt in pairs(parts) do
+			pt.Parent = camera
+		end
+		for propName, propValue in pairs(properties) do
+			for _, pt in pairs(parts) do
+				pt[propName] = propValue
+			end
+		end
+	end
+end
+
+UpdateOrientation(true)
+RunService.RenderStepped:Connect(UpdateOrientation)
