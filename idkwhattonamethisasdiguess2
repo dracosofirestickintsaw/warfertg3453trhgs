@@ -1,0 +1,1445 @@
+    task.wait(5)
+
+    if not _G.LunarisConfig then
+        _G.LunarisConfig = {}
+    end
+
+    local cfg = _G.LunarisConfig
+    local function cfgGet(key, default)
+        local v = cfg[key]
+        if v == nil then return default end
+        return v
+    end
+
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/dracosofirestickintsaw/warfertg3453trhgs/refs/heads/main/ss5"))()
+
+    local MainWindow = Library:Panel({
+
+        SidebarTitle = "Lunaris Hub",
+    })
+
+    local MainPage = MainWindow:Page("Main", "10723407389")
+    local MainSubPage = MainPage:SubPage({ icon = "10723345749", name = "Main Farm" })
+    local MainFarmSection = MainSubPage:Section("Auto Farm")
+    local VisualsSection = MainSubPage:Section("Visuals")
+
+    local napeExtendEnabled = false
+    local titanEspEnabled = false
+    local autoReloadEnabled = false
+    local espObjects = {}
+    local napeOriginals = {}
+    local activeTween = nil
+    local tweenSpeed = cfgGet("Farm_Tween_Speed", 370)
+    local multiNapeEnabled = false
+    local multiNapeClickActive = false
+    local multiNapeFreezeConn = nil
+    local multiNapeThreads = {}
+    local persistFreezeHead = nil
+
+    local function getNapes()
+        local napes = {}
+        local titans = workspace:FindFirstChild("Titans")
+        if not titans then return napes end
+        for _, titan in ipairs(titans:GetChildren()) do
+            local hitboxes = titan:FindFirstChild("Hitboxes")
+            if not hitboxes then continue end
+            local hit = hitboxes:FindFirstChild("Hit")
+            if not hit then continue end
+            local nape = hit:FindFirstChild("Nape")
+            if nape then table.insert(napes, nape) end
+        end
+        return napes
+    end
+
+    local function getNapeForTitan(titan)
+        local hitboxes = titan:FindFirstChild("Hitboxes")
+        if not hitboxes then return nil end
+        local hit = hitboxes:FindFirstChild("Hit")
+        if not hit then return nil end
+        return hit:FindFirstChild("Nape")
+    end
+
+    local espColor = Color3.fromRGB(255, 255, 255)
+    local fullEspColor = Color3.fromRGB(255, 255, 255)
+    local fullEspEnabled = false
+    local espDistanceEnabled = false
+    local espStateEnabled = false
+    local billboardObjects = {}
+
+    local function cleanBillboards()
+        for _, bb in ipairs(billboardObjects) do
+            if bb and bb.Parent then bb:Destroy() end
+        end
+        billboardObjects = {}
+    end
+
+    local function getPlayerRoot()
+        local player = game:GetService("Players").LocalPlayer
+        local char = player and player.Character
+        return char and char:FindFirstChild("HumanoidRootPart")
+    end
+
+    local function applyHighlightStyle(highlight)
+        if fullEspEnabled then
+            highlight.FillColor = fullEspColor
+            highlight.FillTransparency = 0.4
+            highlight.OutlineColor = fullEspColor
+            highlight.OutlineTransparency = 0
+        else
+            highlight.FillColor = espColor
+            highlight.FillTransparency = 1
+            highlight.OutlineColor = espColor
+            highlight.OutlineTransparency = 0
+        end
+    end
+
+    local function onTitanEsp(value)
+        titanEspEnabled = value
+        for _, highlight in ipairs(espObjects) do highlight:Destroy() end
+        espObjects = {}
+        if not value then cleanBillboards() end
+        if value then
+            task.spawn(function()
+                while titanEspEnabled do
+                    local titans = workspace:FindFirstChild("Titans")
+                    local root = getPlayerRoot()
+                    if titans then
+                        for _, titan in ipairs(titans:GetChildren()) do
+                            local alreadyHasHighlight = false
+                            for _, highlight in ipairs(espObjects) do
+                                if highlight.Adornee == titan then
+                                    alreadyHasHighlight = true
+                                    applyHighlightStyle(highlight)
+                                    break
+                                end
+                            end
+                            if not alreadyHasHighlight then
+                                local highlight = Instance.new("Highlight")
+                                highlight.Adornee = titan
+                                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                highlight.Parent = game:GetService("CoreGui")
+                                applyHighlightStyle(highlight)
+                                table.insert(espObjects, highlight)
+                            end
+                            local titanRoot = titan:FindFirstChild("HumanoidRootPart") or titan:FindFirstChildWhichIsA("BasePart")
+                            local distText = "? studs"
+                            if root and titanRoot then
+                                local dist = math.floor((root.Position - titanRoot.Position).Magnitude)
+                                distText = dist .. " studs"
+                            end
+                            local stateText = tostring(titan:GetAttribute("State") or "?")
+                            local existingBb = nil
+                            for _, bb in ipairs(billboardObjects) do
+                                if bb and bb.Parent and bb.Adornee == titan then
+                                    existingBb = bb
+                                    break
+                                end
+                            end
+                            if not existingBb then
+                                local bb = Instance.new("BillboardGui")
+                                bb.Adornee = titan
+                                bb.Size = UDim2.new(0, 140, 0, 50)
+                                bb.StudsOffset = Vector3.new(0, 8, 0)
+                                bb.AlwaysOnTop = true
+                                bb.ResetOnSpawn = false
+                                bb.Parent = game:GetService("CoreGui")
+                                local frame = Instance.new("Frame")
+                                frame.Name = "Frame"
+                                frame.BackgroundTransparency = 1
+                                frame.Size = UDim2.new(1, 0, 1, 0)
+                                frame.Parent = bb
+                                local layout = Instance.new("UIListLayout")
+                                layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+                                layout.VerticalAlignment = Enum.VerticalAlignment.Center
+                                layout.SortOrder = Enum.SortOrder.LayoutOrder
+                                layout.Parent = frame
+                                local distLabel = Instance.new("TextLabel")
+                                distLabel.Name = "DistLabel"
+                                distLabel.BackgroundTransparency = 1
+                                distLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                distLabel.TextStrokeTransparency = 0
+                                distLabel.TextSize = 13
+                                distLabel.Font = Enum.Font.GothamBold
+                                distLabel.Size = UDim2.new(1, 0, 0, 18)
+                                distLabel.Text = distText
+                                distLabel.Visible = espDistanceEnabled
+                                distLabel.LayoutOrder = 1
+                                distLabel.Parent = frame
+                                local stateLabel = Instance.new("TextLabel")
+                                stateLabel.Name = "StateLabel"
+                                stateLabel.BackgroundTransparency = 1
+                                stateLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                stateLabel.TextStrokeTransparency = 0
+                                stateLabel.TextSize = 13
+                                stateLabel.Font = Enum.Font.GothamBold
+                                stateLabel.Size = UDim2.new(1, 0, 0, 18)
+                                stateLabel.Text = stateText
+                                stateLabel.Visible = espStateEnabled
+                                stateLabel.LayoutOrder = 2
+                                stateLabel.Parent = frame
+                                table.insert(billboardObjects, bb)
+                            else
+                                local frame = existingBb:FindFirstChild("Frame")
+                                local distLabel = frame and frame:FindFirstChild("DistLabel")
+                                local stateLabel = frame and frame:FindFirstChild("StateLabel")
+                                if distLabel then distLabel.Text = distText; distLabel.Visible = espDistanceEnabled end
+                                if stateLabel then stateLabel.Text = stateText; stateLabel.Visible = espStateEnabled end
+                            end
+                        end
+                    end
+                    for i = #espObjects, 1, -1 do
+                        local h = espObjects[i]
+                        if not h.Adornee or not h.Adornee.Parent then
+                            h:Destroy()
+                            table.remove(espObjects, i)
+                        end
+                    end
+                    for i = #billboardObjects, 1, -1 do
+                        local bb = billboardObjects[i]
+                        if not bb or not bb.Parent or not bb.Adornee or not bb.Adornee.Parent then
+                            if bb and bb.Parent then bb:Destroy() end
+                            table.remove(billboardObjects, i)
+                        end
+                    end
+                    wait()
+                end
+            end)
+        end
+    end
+
+    local EspToggle = VisualsSection:Toggle({
+        name = "Titan ESP",
+        default = cfgGet("Titan_ESP", false),
+        callback = onTitanEsp,
+    })
+
+    if cfgGet("Titan_ESP", false) then
+        onTitanEsp(true)
+    end
+
+    local EspSubOptions = EspToggle:AddSubOptions({ Name = "ESP Options" })
+
+    EspSubOptions:ToggleColorpicker({
+        Name = "ESP Color", Flag = "titan_esp_color_enabled", Default = true, Callback = function() end,
+    }, {
+        Flag = "titan_esp_color", color = Color3.fromRGB(255, 255, 255),
+        callback = function(color)
+            espColor = color
+            if not fullEspEnabled then
+                for _, highlight in ipairs(espObjects) do
+                    highlight.FillColor = espColor
+                    highlight.OutlineColor = espColor
+                end
+            end
+        end,
+    })
+
+    EspSubOptions:Toggle({
+        Name = "ESP Distance", Flag = "titan_esp_distance", Default = false,
+        Callback = function(value)
+            espDistanceEnabled = value
+            for _, bb in ipairs(billboardObjects) do
+                if bb and bb.Parent then
+                    local frame = bb:FindFirstChild("Frame")
+                    local label = frame and frame:FindFirstChild("DistLabel")
+                    if label then label.Visible = value end
+                end
+            end
+        end,
+    })
+
+    EspSubOptions:Toggle({
+        Name = "ESP State", Flag = "titan_esp_state", Default = false,
+        Callback = function(value)
+            espStateEnabled = value
+            for _, bb in ipairs(billboardObjects) do
+                if bb and bb.Parent then
+                    local frame = bb:FindFirstChild("Frame")
+                    local label = frame and frame:FindFirstChild("StateLabel")
+                    if label then label.Visible = value end
+                end
+            end
+        end,
+    })
+
+    EspSubOptions:Toggle({
+        Name = "Full ESP", Flag = "titan_full_esp", Default = false,
+        Callback = function(value)
+            fullEspEnabled = value
+            for _, highlight in ipairs(espObjects) do applyHighlightStyle(highlight) end
+        end,
+    })
+
+    EspSubOptions:ToggleColorpicker({
+        Name = "Full ESP Color", Flag = "titan_full_esp_color_enabled", Default = true, Callback = function() end,
+    }, {
+        Flag = "titan_full_esp_color", color = Color3.fromRGB(255, 255, 255),
+        callback = function(color)
+            fullEspColor = color
+            if fullEspEnabled then
+                for _, highlight in ipairs(espObjects) do
+                    highlight.FillColor = fullEspColor
+                    highlight.OutlineColor = fullEspColor
+                end
+            end
+        end,
+    })
+
+    local autoFarmEnabled = false
+    local isTeleporting = false
+    local napeTweenActive = false
+    local clickSpamActive = false
+    local persistFreezeActive = false
+    local persistFreezeTarget = nil
+    local persistFreezeConn = nil
+    local instantTweenSpeed = 1000
+
+    function WaitHRP(q0)
+        if not q0 then return end
+        return q0.Character:WaitForChild("HumanoidRootPart", 9)
+    end
+
+    function topos(Pos, onComplete, customSpeed)
+        local plr = game.Players.LocalPlayer
+        if not (plr.Character and plr.Character.Humanoid.Health > 0 and plr.Character:FindFirstChild("HumanoidRootPart")) then return end
+        if not Pos then return end
+        if activeTween then activeTween:Cancel(); activeTween = nil end
+        local Distance = (Pos.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+        if plr.Character:FindFirstChild("PartTele") then plr.Character.PartTele:Destroy() end
+        local PartTele = Instance.new("Part", plr.Character)
+        PartTele.Size = Vector3.new(10, 1, 10)
+        PartTele.Name = "PartTele"
+        PartTele.Anchored = true
+        PartTele.Transparency = 1
+        PartTele.CanCollide = false
+        PartTele.CFrame = WaitHRP(plr).CFrame
+        PartTele:GetPropertyChangedSignal("CFrame"):Connect(function()
+            if not isTeleporting then return end
+            task.wait()
+            if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                plr.Character.HumanoidRootPart.CFrame = PartTele.CFrame
+            end
+        end)
+        isTeleporting = true
+        local Tween = game:GetService("TweenService"):Create(
+            PartTele,
+            TweenInfo.new(Distance / (customSpeed or tweenSpeed), Enum.EasingStyle.Linear),
+            { CFrame = Pos }
+        )
+        activeTween = Tween
+        Tween:Play()
+        Tween.Completed:Connect(function(status)
+            if plr.Character and plr.Character:FindFirstChild("PartTele") then
+                plr.Character.PartTele:Destroy()
+            end
+            isTeleporting = false
+            activeTween = nil
+            if onComplete and status == Enum.PlaybackState.Completed then
+                onComplete()
+            end
+        end)
+    end
+
+    local function titanIsAlive(titan)
+        return titan and titan.Parent and titan:FindFirstChild("Humanoid") ~= nil
+    end
+
+    local function getClosestTitan(root)
+        local titans = workspace:FindFirstChild("Titans")
+        if not titans then return nil end
+        local closest = nil
+        local minDist = math.huge
+        for _, titan in ipairs(titans:GetChildren()) do
+            if not titanIsAlive(titan) then continue end
+            local titanRoot = titan:FindFirstChild("HumanoidRootPart") or titan:FindFirstChildWhichIsA("BasePart")
+            if titanRoot then
+                local dist = (root.Position - titanRoot.Position).Magnitude
+                if dist < minDist then minDist = dist; closest = titan end
+            end
+        end
+        return closest
+    end
+
+    local function findGasTankRefill()
+        for _, desc in ipairs(workspace:GetDescendants()) do
+            if desc.Name == "GasTanks" then
+                local refill = desc:FindFirstChild("Refill")
+                if refill then return refill end
+            end
+        end
+        return nil
+    end
+
+    local function getSetsText()
+        local success, label = pcall(function()
+            return game:GetService("Players").LocalPlayer.PlayerGui.Interface.HUD.Main.Top["7"].Blades.Sets
+        end)
+        if success and label then return label.Text end
+        return nil
+    end
+
+    local function isRewardsVisible()
+        local success, rewards = pcall(function()
+            return game:GetService("Players").LocalPlayer.PlayerGui.Interface.Rewards
+        end)
+        return success and rewards and rewards.Visible
+    end
+
+    local function checkSideEffects()
+        local setsText = getSetsText()
+        if setsText then
+            local left = setsText:match("^(%d+)%s*/%s*")
+            if left and tonumber(left) == 0 then
+                local refill = findGasTankRefill()
+                if refill then
+                    game:GetService("ReplicatedStorage").Assets.Remotes.POST:FireServer("Attacks", "Reload", refill)
+                end
+            end
+        end
+        if isRewardsVisible() then
+            game:GetService("ReplicatedStorage").Assets.Remotes.GET:InvokeServer("Functions", "Retry", "Add")
+        end
+    end
+
+    local function stopNapeTween()
+        napeTweenActive = false
+    end
+
+    local function setTitanAnchored(titan, state)
+        if not titan or not titan.Parent then return end
+        for _, part in ipairs(titan:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Anchored = state
+            end
+        end
+    end
+
+    local function disableNapeJoints(nape, state)
+        if not nape then return end
+        for _, c in ipairs(nape:GetChildren()) do
+            if c:IsA("WeldConstraint") or c:IsA("Weld") or c:IsA("Motor6D") then
+                c.Enabled = not state
+            end
+        end
+        if nape.Parent then
+            for _, c in ipairs(nape.Parent:GetChildren()) do
+                if c:IsA("WeldConstraint") or c:IsA("Weld") or c:IsA("Motor6D") then
+                    if (c:IsA("WeldConstraint") and (c.Part0 == nape or c.Part1 == nape))
+                        or (not c:IsA("WeldConstraint") and (c.Part0 == nape or c.Part1 == nape)) then
+                        c.Enabled = not state
+                    end
+                end
+            end
+        end
+    end
+
+    local function startNapeOrbit(nape, hrp, titan)
+        napeTweenActive = true
+        task.spawn(function()
+            local TweenService = game:GetService("TweenService")
+            local swingDistance = 12
+            local swingHeight = 0
+            disableNapeJoints(nape, true)
+            while napeTweenActive and nape and nape.Parent and hrp and hrp.Parent do
+                nape.Size = Vector3.new(8, 7, 8)
+                nape.CFrame = hrp.CFrame * CFrame.new(swingDistance, swingHeight, 0)
+                local tweenLeft = TweenService:Create(nape, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { CFrame = hrp.CFrame * CFrame.new(-swingDistance, swingHeight, 0) })
+                tweenLeft:Play()
+                tweenLeft.Completed:Wait()
+                if not napeTweenActive then break end
+                nape.CFrame = hrp.CFrame
+                nape.Size = Vector3.new(150, 150, 150)
+                task.wait(0.1)
+                if not napeTweenActive then break end
+                nape.Size = Vector3.new(8, 7, 8)
+                nape.CFrame = hrp.CFrame * CFrame.new(-swingDistance, swingHeight, 0)
+                local tweenRight = TweenService:Create(nape, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { CFrame = hrp.CFrame * CFrame.new(swingDistance, swingHeight, 0) })
+                tweenRight:Play()
+                tweenRight.Completed:Wait()
+                if not napeTweenActive then break end
+                nape.CFrame = hrp.CFrame
+                nape.Size = Vector3.new(150, 150, 150)
+                task.wait(0.1)
+                if not napeTweenActive then break end
+            end
+            disableNapeJoints(nape, false)
+            setTitanAnchored(titan, false)
+            if nape and nape.Parent then
+                nape.Size = Vector3.new(8, 7, 8)
+            end
+        end)
+    end
+
+    local function onAutoFarm(value)
+        autoFarmEnabled = value
+        if not value then
+            stopNapeTween()
+            if activeTween then activeTween:Cancel(); activeTween = nil end
+            isTeleporting = false
+            persistFreezeActive = false
+            persistFreezeTarget = nil
+            if persistFreezeConn then persistFreezeConn:Disconnect(); persistFreezeConn = nil end
+            return
+        end
+        persistFreezeConn = game:GetService("RunService").Heartbeat:Connect(function()
+            if not persistFreezeActive then return end
+            local plr = game:GetService("Players").LocalPlayer
+            local char = plr and plr.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if not root then return end
+            if root.AssemblyLinearVelocity.Y < -10 then return end
+            local liveHead = persistFreezeHead and persistFreezeHead.Parent and persistFreezeHead
+            if liveHead then
+                persistFreezeTarget = CFrame.new(liveHead.Position + Vector3.new(0, 100, 0))
+            end
+            local partTele = char:FindFirstChild("PartTele")
+            if partTele then
+                root.CFrame = partTele.CFrame
+            elseif persistFreezeTarget then
+                root.CFrame = persistFreezeTarget
+            end
+        end)
+        task.spawn(function()
+            while autoFarmEnabled do
+                local ok, err = pcall(function()
+                    local plr = game:GetService("Players").LocalPlayer
+                    if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then
+                        plr.CharacterAdded:Wait()
+                        plr.Character:WaitForChild("HumanoidRootPart", 10)
+                    end
+                    local char = plr.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if not root then return end
+                    checkSideEffects()
+                    local titan = getClosestTitan(root)
+                    if not titan then return end
+                    local head = titan:FindFirstChild("Head")
+                    if not head then return end
+                    setTitanAnchored(titan, false)
+                    local aboveHeadCF = CFrame.new(head.Position + Vector3.new(0, 100, 0))
+                    persistFreezeTarget = aboveHeadCF
+                    topos(aboveHeadCF)
+                    local arrivalTimeout = tick()
+                    while autoFarmEnabled do
+                        local curRoot = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                        if not curRoot then break end
+                        if (curRoot.Position - aboveHeadCF.Position).Magnitude < 15 then break end
+                        if tick() - arrivalTimeout > 6 then break end
+                        wait(0.05)
+                    end
+                    if activeTween then activeTween:Cancel(); activeTween = nil end
+                    isTeleporting = false
+                    if plr.Character and plr.Character:FindFirstChild("PartTele") then
+                        plr.Character.PartTele:Destroy()
+                    end
+                    if not autoFarmEnabled then return end
+                    local liveHead = titan:FindFirstChild("Head")
+                    if not liveHead then return end
+                    persistFreezeHead = liveHead
+                    local frozenCF = CFrame.new(liveHead.Position + Vector3.new(0, 100, 0))
+                    local curRoot = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                    if not curRoot then return end
+                    curRoot.CFrame = frozenCF
+                    persistFreezeTarget = frozenCF
+                    persistFreezeActive = true
+                    local nape = getNapeForTitan(titan)
+                    if not nape then
+                        persistFreezeActive = false
+                        return
+                    end
+                    stopNapeTween()
+                    nape.CFrame = curRoot.CFrame
+                    startNapeOrbit(nape, curRoot, titan)
+                    local farmRemote = game:GetService("ReplicatedStorage").Assets.Remotes.POST
+                    local lastSlash = 0
+                    task.spawn(function()
+                        while autoFarmEnabled and titanIsAlive(titan) do
+                            if not titan:FindFirstChild("HumanoidRootPart") then break end
+                            pcall(function()
+                                farmRemote:FireServer("Hitboxes", "Register", nape, math.random(1000, 1050), 0)
+                            end)
+                            if tick() - lastSlash >= 1 then
+                                lastSlash = tick()
+                                pcall(function()
+                                    farmRemote:FireServer("Attacks", "Slash", true)
+                                end)
+                            end
+                            task.wait()
+                        end
+                    end)
+                    local killTimeout = tick()
+                    while autoFarmEnabled and titanIsAlive(titan) do
+                        checkSideEffects()
+                        if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then
+                            plr.CharacterAdded:Wait()
+                            plr.Character:WaitForChild("HumanoidRootPart", 10)
+                        end
+                        local liveHead = titan:FindFirstChild("Head")
+                        if liveHead then
+                            frozenCF = CFrame.new(liveHead.Position + Vector3.new(0, 200, 0))
+                            persistFreezeTarget = frozenCF
+                        end
+                        if tick() - killTimeout > 60 then break end
+                        wait(0.05)
+                    end
+                    stopNapeTween()
+                end)
+                if not ok then
+                end
+                task.wait(0.1)
+            end
+            persistFreezeActive = false
+            persistFreezeTarget = nil
+            if persistFreezeConn then persistFreezeConn:Disconnect(); persistFreezeConn = nil end
+        end)
+    end
+
+    MainFarmSection:Toggle({
+        name = "Auto Farm",
+        default = cfgGet("Auto_Farm", false),
+        callback = onAutoFarm,
+    })
+
+    if cfgGet("Auto_Farm", false) then
+        onAutoFarm(true)
+    end
+
+    MainFarmSection:Slider({
+        name = "Farm Tween Speed",
+        flag = "FarmTweenSpeedFlag",
+        default = cfgGet("Farm_Tween_Speed", 370),
+        min = 50,
+        max = 2000,
+        decimals = 0.1,
+        Callback = function(Value)
+            tweenSpeed = Value
+        end,
+    })
+
+    local function onAutoFarmInstant(value)
+        multiNapeEnabled = value
+
+        if not value then
+            multiNapeClickActive = false
+            if multiNapeFreezeConn then multiNapeFreezeConn:Disconnect(); multiNapeFreezeConn = nil end
+            multiNapeThreads = {}
+            return
+        end
+
+        task.spawn(function()
+            local plr = game:GetService("Players").LocalPlayer
+            local remote = game:GetService("ReplicatedStorage").Assets.Remotes.POST
+            local freezeTarget = nil
+
+            multiNapeFreezeConn = game:GetService("RunService").Heartbeat:Connect(function()
+                if not multiNapeEnabled then return end
+                local c = plr.Character
+                if not c then return end
+                local r = c:FindFirstChild("HumanoidRootPart")
+                if not r then return end
+                local partTele = c:FindFirstChild("PartTele")
+                if partTele and isTeleporting then
+                    r.CFrame = partTele.CFrame
+                elseif freezeTarget then
+                    r.CFrame = freezeTarget
+                end
+            end)
+
+            while multiNapeEnabled do
+                pcall(checkSideEffects)
+
+                local char = plr.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                if not root then task.wait(0.1); continue end
+
+                local titans = workspace:FindFirstChild("Titans")
+                if not titans then task.wait(0.5); continue end
+
+                local closest = getClosestTitan(root)
+                if not closest then task.wait(0.5); continue end
+
+                local closestHead = closest:FindFirstChild("Head")
+                local closestRoot = closest:FindFirstChild("HumanoidRootPart") or closest:FindFirstChildWhichIsA("BasePart")
+                if not closestRoot or not closestHead then task.wait(0.1); continue end
+
+                setTitanAnchored(closest, true)
+
+                local aboveCF = CFrame.new(closestHead.Position + Vector3.new(0, 100, 0))
+
+                local playerRoot = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                if playerRoot then playerRoot.Anchored = true end
+
+                freezeTarget = aboveCF
+                topos(aboveCF, nil, instantTweenSpeed)
+
+                local arrivalTimeout = tick()
+                while multiNapeEnabled do
+                    local curRoot = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                    if not curRoot then break end
+                    if (curRoot.Position - aboveCF.Position).Magnitude < 15 then break end
+                    if tick() - arrivalTimeout > 10 then break end
+                    task.wait()
+                end
+
+                if activeTween then activeTween:Cancel(); activeTween = nil end
+                isTeleporting = false
+                if plr.Character:FindFirstChild("PartTele") then
+                    plr.Character.PartTele:Destroy()
+                end
+
+                local partTele = Instance.new("Part", plr.Character)
+                partTele.Name = "PartTele"
+                partTele.Anchored = true
+                partTele.Transparency = 1
+                partTele.CanCollide = false
+                partTele.Size = Vector3.new(10, 1, 10)
+                partTele.CFrame = aboveCF
+                isTeleporting = true
+
+                local headTrackConn = game:GetService("RunService").Heartbeat:Connect(function()
+                    if not multiNapeEnabled then return end
+                    local h = closest:FindFirstChild("Head")
+                    if h and partTele and partTele.Parent then
+                        partTele.CFrame = CFrame.new(h.Position + Vector3.new(0, 200, 0))
+                    end
+                end)
+
+                local nearbyNapes = {}
+                for _, titan in ipairs(titans:GetChildren()) do
+                    if not titanIsAlive(titan) then continue end
+                    local titanRoot = titan:FindFirstChild("HumanoidRootPart") or titan:FindFirstChildWhichIsA("BasePart")
+                    if titanRoot then
+                        local dist2 = (closestRoot.Position - titanRoot.Position).Magnitude
+                        if dist2 <= 1000 then
+                            local nape = getNapeForTitan(titan)
+                            if nape then table.insert(nearbyNapes, nape) end
+                        end
+                    end
+                end
+
+                for _, nape in ipairs(nearbyNapes) do
+                    if not multiNapeEnabled then break end
+                    task.spawn(function()
+                        local ownerTitan = nape:FindFirstAncestorWhichIsA("Model")
+                        for i = 1, 10 do
+                            if not multiNapeEnabled then break end
+                            if ownerTitan and not ownerTitan:FindFirstChild("HumanoidRootPart") then break end
+                            pcall(function()
+                                remote:FireServer("Hitboxes", "Register", nape, math.random(1000, 1050), 0)
+                            end)
+                            pcall(function()
+                                remote:FireServer("Attacks", "Slash", true)
+                            end)
+                            task.wait()
+                        end
+                    end)
+                end
+
+                headTrackConn:Disconnect()
+                isTeleporting = false
+                if plr.Character and plr.Character:FindFirstChild("PartTele") then
+                    plr.Character.PartTele:Destroy()
+                end
+
+                task.wait()
+                freezeTarget = nil
+                setTitanAnchored(closest, false)
+                local playerRoot2 = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                if playerRoot2 then playerRoot2.Anchored = false end
+                task.wait()
+            end
+
+            freezeTarget = nil
+            multiNapeClickActive = false
+            if multiNapeFreezeConn then multiNapeFreezeConn:Disconnect(); multiNapeFreezeConn = nil end
+        end)
+    end
+
+    MainFarmSection:Toggle({
+        name = "Auto Farm Instant",
+        default = cfgGet("Auto_Farm_Instant", false),
+        callback = onAutoFarmInstant,
+    })
+
+    if cfgGet("Auto_Farm_Instant", false) then
+        onAutoFarmInstant(true)
+    end
+
+    local function onAutoReload(value)
+        autoReloadEnabled = value
+        task.spawn(function()
+            while autoReloadEnabled do
+                local success, gradient = pcall(function()
+                    return game:GetService("Players").LocalPlayer.PlayerGui.Interface.HUD.Main.Top["7"].Blades.Inner.Bar.Gradient
+                end)
+                if success and gradient then
+                    if gradient.Offset.X <= -0.15 then
+                        pcall(function()
+                            game:GetService("ReplicatedStorage").Assets.Remotes.GET:InvokeServer("Blades", "Reload")
+                        end)
+                    end
+                end
+                wait()
+            end
+        end)
+    end
+
+    MainFarmSection:Toggle({
+        name = "Auto Reload",
+        default = cfgGet("Auto_Reload", false),
+        callback = onAutoReload,
+    })
+
+    if cfgGet("Auto_Reload", false) then
+        onAutoReload(true)
+    end
+
+    local autoEscapeGrabEnabled = false
+    local autoEscapeConn = nil
+    local function onAutoEscapeGrab(value)
+        autoEscapeGrabEnabled = value
+        if autoEscapeConn then
+            autoEscapeConn:Disconnect()
+            autoEscapeConn = nil
+        end
+        if not value then return end
+        autoEscapeConn = game:GetService("RunService").Heartbeat:Connect(function()
+            local ok, buttons = pcall(function()
+                return game:GetService("Players").LocalPlayer.PlayerGui.Interface.Buttons
+            end)
+            if not ok or not buttons then return end
+            local keys = {"W", "A", "S", "D"}
+            for _, keyName in ipairs(keys) do
+                local keyButton = buttons:FindFirstChild(keyName)
+                if keyButton then
+                    local ok2, err = pcall(function()
+                        game:GetService("ReplicatedStorage").Assets.Remotes.POST:FireServer(
+                            "Attacks",
+                            "Slash_Escape"
+                        )
+                    end)
+                    keyButton:Destroy()
+                    break
+                end
+            end
+        end)
+    end
+
+    MainFarmSection:Toggle({
+        name = "Auto Escape Grab",
+        default = cfgGet("Auto_Escape_Grab", false),
+        callback = onAutoEscapeGrab,
+    })
+
+    if cfgGet("Auto_Escape_Grab", false) then
+        onAutoEscapeGrab(true)
+    end
+
+    local leaveIfOthersEnabled = false
+    local leaveIfOthersConn = nil
+
+    local function onLeaveIfOtherPlayers(value)
+        leaveIfOthersEnabled = value
+        if leaveIfOthersConn then
+            leaveIfOthersConn:Disconnect()
+            leaveIfOthersConn = nil
+        end
+        if not value then return end
+
+        leaveIfOthersConn = game:GetService("RunService").Heartbeat:Connect(function()
+            local ok, freecam = pcall(function()
+                return game:GetService("Players").LocalPlayer.PlayerGui.Freecam
+            end)
+            if not ok or not freecam then return end
+            local players = game:GetService("Players"):GetPlayers()
+            if #players > 1 then
+                game:GetService("TeleportService"):Teleport(14916516914, game:GetService("Players").LocalPlayer)
+            end
+        end)
+    end
+
+    MainFarmSection:Toggle({
+        name = "Leave if Other Players",
+        default = cfgGet("Leave_If_Others", false),
+        callback = onLeaveIfOtherPlayers,
+    })
+
+    if cfgGet("Leave_If_Others", false) then
+        onLeaveIfOtherPlayers(true)
+    end
+
+    if _G.LunarisCursorConn then
+        _G.LunarisCursorConn:Disconnect()
+        _G.LunarisCursorConn = nil
+    end
+    if _G.LunarisCursorDrawing then
+        _G.LunarisCursorDrawing:Remove()
+        _G.LunarisCursorDrawing = nil
+    end
+    game:GetService("UserInputService").MouseIconEnabled = true
+
+    local function onChangeCursor(value)
+        local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+        if value then
+            mouse.Icon = ""
+        else
+            mouse.Icon = ""
+        end
+    end
+
+    VisualsSection:Toggle({
+        name = "Change Cursor",
+        default = cfgGet("Change_Cursor", true),
+        callback = onChangeCursor,
+    })
+
+    onChangeCursor(cfgGet("Change_Cursor", true))
+
+    local function onNapeExtend(value)
+        napeExtendEnabled = value
+        if value then
+            task.spawn(function()
+                while napeExtendEnabled do
+                    for _, nape in ipairs(getNapes()) do
+                        if not napeOriginals[nape] then
+                            napeOriginals[nape] = {
+                                Color = nape.Color,
+                                Size = nape.Size,
+                                Transparency = nape.Transparency,
+                            }
+                        end
+                        nape.Color = Color3.fromRGB(255, 0, 0)
+                        nape.Size = Vector3.new(225, 225, 225)
+                        nape.Transparency = 0.87
+                    end
+                    wait()
+                end
+            end)
+        else
+            for nape, original in pairs(napeOriginals) do
+                if nape and nape.Parent then
+                    nape.Color = original.Color
+                    nape.Size = original.Size
+                    nape.Transparency = original.Transparency
+                end
+            end
+            napeOriginals = {}
+        end
+    end
+
+    VisualsSection:Toggle({
+        name = "Nape Extend",
+        default = cfgGet("Nape_Extend", false),
+        callback = onNapeExtend,
+    })
+
+    if cfgGet("Nape_Extend", false) then
+        onNapeExtend(true)
+    end
+
+    VisualsSection:Button({
+        name = "Delete Blindness",
+        callback = function()
+            local success, obj = pcall(function()
+                return game:GetService("Players").LocalPlayer.PlayerGui.Interface.Blinded
+            end)
+            if success and obj then obj:Destroy() end
+        end,
+    })
+
+    VisualsSection:Button({
+        name = "Delete Vignette",
+        callback = function()
+            local success, obj = pcall(function()
+                return game:GetService("Players").LocalPlayer.PlayerGui.Interface.Vignette
+            end)
+            if success and obj then obj:Destroy() end
+        end,
+    })
+
+    VisualsSection:Button({
+        name = "Delete Injured Eye",
+        callback = function()
+            local success, obj = pcall(function()
+                return workspace.Characters.arabic_mosl.Injuries.Eyes
+            end)
+            if success and obj then obj:Destroy() end
+        end,
+    })
+
+
+
+    local SkillTreePage = MainWindow:Page("Skill Tree", "10747362748")
+    local SkillTreeSubPage = SkillTreePage:SubPage({ icon = "10723427199", name = "Skills" })
+    local SkillTreeSection = SkillTreeSubPage:Section("Auto Skill Tree")
+
+    local autoSkillEnabled = false
+    local autoSkillConn = nil
+
+    local skillLeftPath = "Skill Cooldown"
+    local skillMiddlePath = "Damage"
+    local skillRightPath = "Damage Reduction"
+    local skillPriority = "Left"
+    local skillRanges = {
+        Middle = {
+            base   = { min = 1,  max = 13 },
+            Damage    = { min = 26, max = 37 },
+            Criticals = { min = 14, max = 25 },
+        },
+        Right = {
+            base            = { min = 38, max = 45 },
+            Health          = { min = 46, max = 57 },
+            ["Damage Reduction"] = { min = 58, max = 69 },
+        },
+        Left = {
+            base            = { min = 70, max = 80 },
+            ["Health Regen"]    = { min = 81, max = 89 },
+            ["Skill Cooldown"]  = { min = 90, max = 98 },
+        },
+    }
+
+    local function getSkillsForPath(path, chosenOption)
+        local range = skillRanges[path]
+        if not range then return {} end
+        local skills = {}
+        for i = range.base.min, range.base.max do
+            table.insert(skills, i)
+        end
+        local sub = range[chosenOption]
+        if sub then
+            for i = sub.min, sub.max do
+                table.insert(skills, i)
+            end
+        end
+        return skills
+    end
+
+    local function unlockSkill(skillId)
+        pcall(function()
+            game:GetService("ReplicatedStorage").Assets.Remotes.GET:InvokeServer(
+                "S_Equipment",
+                "Unlock",
+                { tostring(skillId) }
+            )
+        end)
+    end
+
+    local function getPriorityOrder()
+        if skillPriority == "Left" then
+            return { "Left", "Middle", "Right" }
+        elseif skillPriority == "Middle" then
+            return { "Middle", "Left", "Right" }
+        else
+            return { "Right", "Middle", "Left" }
+        end
+    end
+
+    local function getOptionForPath(path)
+        if path == "Left" then return skillLeftPath
+        elseif path == "Middle" then return skillMiddlePath
+        else return skillRightPath end
+    end
+
+    local function onAutoSkillTree(value)
+        autoSkillEnabled = value
+        if autoSkillConn then
+            autoSkillConn:Disconnect()
+            autoSkillConn = nil
+        end
+        if not value then return end
+
+        task.spawn(function()
+            while autoSkillEnabled do
+                local order = getPriorityOrder()
+                for _, path in ipairs(order) do
+                    local option = getOptionForPath(path)
+                    local skills = getSkillsForPath(path, option)
+                    for _, skillId in ipairs(skills) do
+                        if not autoSkillEnabled then return end
+                        unlockSkill(skillId)
+                    end
+                end
+                task.wait(1)
+            end
+        end)
+    end
+
+    SkillTreeSection:Toggle({
+        name = "Auto Skill Tree",
+        default = cfgGet("Auto_Skill_Tree", false),
+        callback = onAutoSkillTree,
+    })
+
+    if cfgGet("Auto_Skill_Tree", false) then
+        onAutoSkillTree(true)
+    end
+
+    SkillTreeSection:Dropdown({
+        name = "Left Path",
+        flag = "SkillLeftPath",
+        placeholder = "Select Left Path",
+        multi = false,
+        SearchBarEnabled = false,
+        options = { "Skill Cooldown", "Health Regen" },
+        default = "Skill Cooldown",
+        callback = function(Value)
+            skillLeftPath = Value
+        end,
+    })
+
+    SkillTreeSection:Dropdown({
+        name = "Middle Path",
+        flag = "SkillMiddlePath",
+        placeholder = "Select Middle Path",
+        multi = false,
+        SearchBarEnabled = false,
+        options = { "Damage", "Criticals" },
+        default = "Damage",
+        callback = function(Value)
+            skillMiddlePath = Value
+        end,
+    })
+
+    SkillTreeSection:Dropdown({
+        name = "Right Path",
+        flag = "SkillRightPath",
+        placeholder = "Select Right Path",
+        multi = false,
+        SearchBarEnabled = false,
+        options = { "Damage Reduction", "Health" },
+        default = "Damage Reduction",
+        callback = function(Value)
+            skillRightPath = Value
+        end,
+    })
+
+    SkillTreeSection:Dropdown({
+        name = "Path Priority",
+        flag = "SkillPathPriority",
+        placeholder = "Select Priority",
+        multi = false,
+        SearchBarEnabled = false,
+        options = { "Left", "Middle", "Right" },
+        default = "Left",
+        callback = function(Value)
+            skillPriority = Value
+            local orderMap = {
+                ["Left"]   = "Left → Middle → Right",
+                ["Middle"] = "Middle → Left → Right",
+                ["Right"]  = "Right → Middle → Left",
+            }
+            Library:Notify("Skill Priority", "Priority set to: " .. orderMap[Value], 8)
+        end,
+    })
+
+    local ITEM_DB = {}
+    do
+        local entries = {
+            {109672621580008, "Common Perk", "Common"},
+            {133351646691095, "Rare Perk", "Rare"},
+            {120232271670284, "Epic Perk", "Epic"},
+            {80295359195298, "Legendary Perk", "Legendary"},
+            {105354994571642, "Mythic Perk", "Mythic"},
+            {115407384256608, "Spins", "Rare"},
+            {15147184586, "Gems", "Epic"},
+            {15147178963, "Gold", "Uncommon"},
+            {138197199153705, "Canes", "Legendary"},
+            {88883172385964, "Shards", "Legendary"},
+            {15296242924, "XP", "Common"},
+            {15296243532, "BP XP", "Uncommon"},
+            {15296243532, "Regiment EXP", "Uncommon"},
+            {96439357873408, "Honor", "Uncommon"},
+            {81707919492333, "Silver", "Uncommon"},
+            {15092461853, "Family Slot", "Legendary"},
+            {15092463417, "Character Slot", "Legendary"},
+            {15296246336, "2x XP Boost [15m]", "Uncommon"},
+            {15296245045, "2x Gold Boost [15m]", "Uncommon"},
+            {15296245632, "2x Luck Boost [15m]", "Uncommon"},
+            {15296246336, "2x XP Boost [30m]", "Rare"},
+            {15296245045, "2x Gold Boost [30m]", "Rare"},
+            {15296245632, "2x Luck Boost [30m]", "Rare"},
+            {15296246336, "2x XP Boost [1h]", "Epic"},
+            {15296245045, "2x Gold Boost [1h]", "Epic"},
+            {15296245632, "2x Luck Boost [1h]", "Epic"},
+            {15296246336, "2x XP Boost [2h]", "Legendary"},
+            {15296245045, "2x Gold Boost [2h]", "Legendary"},
+            {15296245632, "2x Luck Boost [2h]", "Legendary"},
+            {102945055775751, "Halloween Crate", "Exclusive"},
+            {103634395535206, "Christmas Crate", "Exclusive"},
+            {82518769729221, "Easter Crate", "Exclusive"},
+            {99956030633918, "Winter Crate", "Exclusive"},
+            {15927619606, "Memory Scroll", "Rare"},
+            {17701291443, "Emperor's Key", "Epic"},
+            {17521391812, "Attack Serum", "Mythic"},
+            {81859431562935, "Armored Serum", "Mythic"},
+            {89765801622752, "Female Serum", "Mythic"},
+            {110850026966021, "Colossal Serum", "Mythic"},
+            {17615052249, "Attack Shard", "Legendary"},
+            {104549336287525, "Armored Shard", "Legendary"},
+            {106208941123434, "Female Shard", "Legendary"},
+            {119267342745863, "Colossal Shard", "Legendary"},
+            {126696755973623, "Worn Key", "Common"},
+            {72661996633440, "Wallsteel Key", "Rare"},
+            {103896948937461, "Command Key", "Epic"},
+            {83613908276357, "Lazurite Key", "Legendary"},
+            {125279671907214, "Crimson Key", "Mythic"},
+            {115850589770698, "Lazurite Ticket", "Epic"},
+            {71344215346827, "Amethyst Ticket", "Legendary"},
+            {72072438178847, "Ascendant Ticket", "Legendary"},
+            {105726887239020, "Gilded Dice", "Rare"},
+            {120707991650819, "Astral Dice", "Epic"},
+            {91089866357664, "Ascendant Dice", "Legendary"},
+            {17602194754, "Onikiri Skin", "Mythic"},
+            {18430587463, "Jötunn Skin", "Mythic"},
+            {101929457855543, "Forsaken Skin", "Exclusive"},
+            {126817282919854, "Grumpy Skin", "Exclusive"},
+            {99244435162643, "Deus Ex Machina Skin", "Mythic"},
+            {116351142092674, "Equinox Moon Skin", "Exclusive"},
+            {70802323268933, "Krampus Skin", "Exclusive"},
+            {88441811934758, "Cinder Lord Skin", "Exclusive"},
+            {87953368282458, "Goggles", "Rare"},
+            {130889800876211, "Glasses", "Rare"},
+            {110964561754823, "Journal", "Rare"},
+            {82726190894711, "Handkerchief", "Epic"},
+            {75100796990299, "Key", "Epic"},
+            {103112121163445, "Lantern", "Epic"},
+            {134625985130562, "Backpack", "Epic"},
+            {123894253072445, "Ring", "Epic"},
+            {121275896965661, "Sleeping Mask", "Epic"},
+            {134623536380912, "Crown", "Legendary"},
+            {113448208731851, "Cloak", "Legendary"},
+            {106647581349832, "Rifle", "Legendary"},
+            {116031924689897, "Hoodie", "Legendary"},
+            {74672630985540, "Sweater", "Legendary"},
+            {127418261817012, "Scarf", "Mythic"},
+            {99360678339152, "Warrior's Armband", "Mythic"},
+            {121085718266662, "Crystal Necklace", "Mythic"},
+            {117304524048351, "Scorched Cloak", "Mythic"},
+            {95501716844573, "Ad Astra", "Mythic"},
+            {117016681706177, "Vulcan's Grace", "Mythic"},
+            {85143805161756, "Monarch's Aura", "Mythic"},
+            {140594046940570, "Eclipse", "Mythic"},
+            {122225212199741, "Third Eye", "Mythic"},
+            {84169631136467, "Nightfall", "Mythic"},
+            {96031247864025, "Frosty Flakes", "Exclusive"},
+            {87866911222755, "Candy Canes", "Exclusive"},
+            {76553527617060, "Christmas Constellation", "Exclusive"},
+            {119039489004097, "Kamish's Wrath [L]", "Mythic"},
+            {72345782752292, "Kamish's Wrath [R]", "Mythic"},
+            {80964191171521, "Sung Dripwoo's Attire", "Mythic"},
+            {124190993858115, "Bunny Girl's Attire", "Mythic"},
+            {100504948192695, "Regiment Cloak (Green)", "Epic"},
+            {105142718175013, "Regiment Cloak (Black)", "Legendary"},
+        }
+        for _, e in ipairs(entries) do
+            ITEM_DB[e[1]] = { e[2], e[3] }
+        end
+    end
+
+    local SPECIAL_RARITY = { Mythic = true, Exclusive = true }
+    local wh_url = cfgGet("Webhook_URL", "")
+    local wh_autoEnabled = false
+    local wh_autoTask = nil
+    local sessionGoldTotal = 0
+
+    local function safeRead(fn)
+        local ok, v = pcall(fn)
+        return (ok and v ~= nil) and tostring(v) or "N/A"
+    end
+
+    local function extractAssetId(imageLabel)
+        local ok, img = pcall(function() return imageLabel.Image end)
+        if not ok then return nil end
+        local n = tostring(img):match("(%d+)$")
+        return n and tonumber(n)
+    end
+
+    local function parseNumber(str)
+        if not str then return 0 end
+        local cleaned = tostring(str):gsub("[^%d]", "")
+        return tonumber(cleaned) or 0
+    end
+
+    local function gatherRewardItems()
+        local normal, special = {}, {}
+        local ok, container = pcall(function()
+            return game:GetService("Players").LocalPlayer
+                .PlayerGui.Interface.Rewards.Main.Info.Main.Items
+        end)
+        if not ok or not container then return normal, special end
+
+        for _, child in ipairs(container:GetChildren()) do
+            local iconOk, icon = pcall(function() return child.Main.Inner.Icon end)
+            local qtyOk, qty = pcall(function() return child.Main.Inner.Quantity.Text end)
+            if not iconOk or not icon then continue end
+
+            local assetId = extractAssetId(icon)
+            if not assetId then continue end
+
+            local entry = ITEM_DB[assetId]
+            local name = entry and entry[1] or string.format("Unknown [%d]", assetId)
+            local rarity = entry and entry[2] or "?"
+            local amount = (qtyOk and qty) or ""
+            local item = { name = name, rarity = rarity, qty = amount }
+
+            if assetId == 15147178963 then
+                sessionGoldTotal = sessionGoldTotal + parseNumber(amount)
+            end
+
+            if SPECIAL_RARITY[rarity] then
+                table.insert(special, item)
+            else
+                table.insert(normal, item)
+            end
+        end
+        return normal, special
+    end
+
+    local function fmtItems(list)
+        if #list == 0 then return "None" end
+        local lines = {}
+        for _, v in ipairs(list) do
+            local prefix = (v.qty ~= "" and v.qty ~= nil) and (v.qty .. "x ") or ""
+            table.insert(lines, prefix .. v.name .. " (" .. v.rarity .. ")")
+        end
+        return table.concat(lines, "\n")
+    end
+
+    local function buildWebhookBody(ov)
+        ov = ov or {}
+        local lp = game:GetService("Players").LocalPlayer
+        local gui = lp.PlayerGui.Interface
+        local username = lp.Name
+        local state = ov.state or safeRead(function() return gui.Rewards.Main.Info.State.Text end)
+        local titans = ov.titans or safeRead(function() return gui.Rewards.Main.Info.Main.Stats.Kills.Amount.Text end)
+        local timeTaken = ov.timeTaken or safeRead(function() return gui.Rewards.Main.Info.Main.Stats.Time_Taken.Amount.Text end)
+        local level = ov.level or safeRead(function() return gui.Spectate.Inner.Main.Level.Text end)
+        local streak = ov.streak or safeRead(function()
+            return gui.Details.Prompt.Main.List.Template_arabic_mosl.Streak.Text
+        end)
+        local normal, special
+        if ov.items then
+            normal = ov.items
+            special = ov.special or {}
+        else
+            normal, special = gatherRewardItems()
+        end
+        local displaySessionGold = ov.sessionGold ~= nil and ov.sessionGold or sessionGoldTotal
+        local statsBlock = string.format(
+            "Level: %s\nSession Gold: %s",
+            level, tostring(displaySessionGold)
+        )
+        local infoBlock = string.format(
+            "Time Taken: %s\nTitans Killed: %s\nStreak: %s",
+            timeTaken, titans, streak
+        )
+        local embed = {
+            title = "Lunaris Rewards Logger",
+            color = 11027200,
+            fields = {
+                { name = "User:", value = "```\n" .. username .. "\n```", inline = true },
+                { name = "Total Stats:", value = "```\n" .. statsBlock .. "\n```", inline = true },
+                { name = "Info:", value = "```\n" .. infoBlock .. "\n```", inline = true },
+                { name = "Rewards:", value = "```\n" .. fmtItems(normal) .. "\n```", inline = true },
+                { name = "Special Rewards:", value = "```\n" .. fmtItems(special) .. "\n```", inline = true },
+            },
+            footer = { text = "Lunaris Hub  •  " .. state },
+        }
+        local tsOk, ts = pcall(function() return os.date("!%Y-%m-%dT%H:%M:%SZ") end)
+        if tsOk and ts then embed.timestamp = ts end
+        return game:GetService("HttpService"):JSONEncode({
+            username = "Lunaris Hub",
+            embeds = { embed },
+        })
+    end
+
+    local function fireWebhook(url, body)
+        if not url or url == "" then warn("Webhook: URL is empty") return end
+        local fn = (syn and syn.request) or http_request
+        if not fn then
+            warn("Webhook: No HTTP function found")
+            return
+        end
+        local ok, err = pcall(fn, {
+            Url = url,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = body,
+        })
+        if not ok then
+        end
+    end
+
+    local WebhookPage = MainWindow:Page("Webhook", "10723346959")
+    local WebhookSubPage = WebhookPage:SubPage({ icon = "10734963671", name = "Discord Webhook" })
+    local WHInputSec = WebhookSubPage:Section("Input Webhook")
+
+    WHInputSec:Textbox({
+        Name = "Webhook URL",
+        flag = "WebhookURLInput",
+        placeholder = "https://discord.com/api/webhooks/...",
+        default = wh_url,
+        Callback = function(Value)
+            wh_url = Value
+        end,
+    })
+
+    WHInputSec:Button({
+        name = "Test Webhook",
+        callback = function()
+            if wh_url == "" then return end
+            local body = buildWebhookBody({
+                state = "MISSION COMPLETED",
+                titans = "67",
+                timeTaken = "00:29",
+                level = "67",
+                streak = "12",
+                sessionGold = 4000,
+            })
+            task.spawn(fireWebhook, wh_url, body)
+        end,
+    })
+
+    local WHAutoSec = WebhookSubPage:Section("Auto Logger")
+
+    local function onAutoLog(value)
+        wh_autoEnabled = value
+        if wh_autoTask then
+            wh_autoTask = nil
+        end
+        if not value then return end
+        local taskRef = {}
+        wh_autoTask = taskRef
+        task.spawn(function()
+            local prevVisible = false
+            while wh_autoEnabled and wh_autoTask == taskRef do
+                local ok, vis = pcall(function()
+                    return game:GetService("Players").LocalPlayer
+                        .PlayerGui.Interface.Rewards.Visible
+                end)
+                if ok then
+                    if vis and not prevVisible then
+                        task.wait(0.6)
+                        if wh_url ~= "" and wh_autoEnabled then
+                            task.spawn(function()
+                                local body = buildWebhookBody()
+                                fireWebhook(wh_url, body)
+                            end)
+                        end
+                    end
+                    prevVisible = vis
+                end
+                task.wait(0.15)
+            end
+        end)
+    end
+
+    WHAutoSec:Toggle({
+        name = "Webhook Logger",
+        default = cfgGet("Webhook_Logger", false),
+        callback = onAutoLog,
+    })
+
+    if cfgGet("Webhook_Logger", false) then
+        onAutoLog(true)
+    end
