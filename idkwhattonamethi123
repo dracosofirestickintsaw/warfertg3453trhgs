@@ -1,10 +1,9 @@
 --[[
-    ROBLOX UI LIBRARY v2.0
-    Clean version - guaranteed to work
-    Upload this exact code to GitHub
+    ROBLOX UI LIBRARY - DEBUG VERSION
+    With explicit visibility and debug output
 ]]
 
--- LINE 1-15: Services and caching
+-- Services
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -12,18 +11,23 @@ local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 
+-- Cache functions
 local fromRGB = Color3.fromRGB
 local clamp = math.clamp
 local insert = table.insert
 local format = string.format
-local InstanceNew = Instance.new
 
--- LINE 16-30: Create Library table FIRST
+local function InstanceNew(Type)
+    return Instance.new(Type)
+end
+
+-- Create Library FIRST
 local Library = {}
 
--- LINE 31-40: Library configuration
+print("[Library] Creating library...")
+
+-- Library configuration
 Library.Tween = {
     Time = 0.2,
     Style = Enum.EasingStyle.Quad,
@@ -36,8 +40,10 @@ Library.Sections = {}
 Library.Windows = {}
 Library.NotifHolder = nil
 
--- LINE 41-70: Theme colors
-Library.CurrentTheme = {
+print("[Library] Configuration set")
+
+-- DEFINE THEME EXPLICITLY
+local Theme = {
     Background = fromRGB(26, 26, 27),
     SecondaryBackground = fromRGB(35, 35, 38),
     TertiaryBackground = fromRGB(45, 45, 48),
@@ -55,20 +61,27 @@ Library.CurrentTheme = {
     CornerRadius = UDim.new(0, 6)
 }
 
--- LINE 71-80: Metatable setup (THIS IS LINE ~73 - THE PROBLEM LINE)
+Library.CurrentTheme = Theme
+
+print("[Library] Theme defined:", Theme)
+print("[Library] Background color:", Theme.Background)
+
+-- Set metatable
 Library.__index = Library
 
--- LINE 81-95: Utility functions
+print("[Library] Metatable set")
+
+-- Utility functions
 local function AddCorner(Parent, Radius)
     local Corner = InstanceNew("UICorner")
-    Corner.CornerRadius = Radius or Library.CurrentTheme.CornerRadius
+    Corner.CornerRadius = Radius or UDim.new(0, 6)
     Corner.Parent = Parent
     return Corner
 end
 
 local function AddStroke(Parent, Color, Thickness)
     local Stroke = InstanceNew("UIStroke")
-    Stroke.Color = Color or Library.CurrentTheme.Border
+    Stroke.Color = Color or Theme.Border
     Stroke.Thickness = Thickness or 1
     Stroke.Parent = Parent
     return Stroke
@@ -89,46 +102,67 @@ local function CreateTween(Object, Properties, Duration)
     return Tween
 end
 
--- LINE 96-200: Window function
+print("[Library] Utility functions defined")
+
+-- WINDOW FUNCTION
 function Library:Window(Data)
     local Name = Data.Name or "Window"
     local Size = Data.Size or UDim2.new(0, 550, 0, 400)
-    local Theme = self.CurrentTheme
+
+    print("[Window] Creating window:", Name)
+    print("[Window] Size:", Size.X.Offset, "x", Size.Y.Offset)
 
     local Window = {}
     Window.Pages = {}
     Window.IsOpen = true
 
-    -- Main frame
+    -- Main frame - CRITICAL: Set explicit properties
     Window.Instance = InstanceNew("Frame")
     Window.Instance.Name = Name
     Window.Instance.Size = Size
     Window.Instance.Position = UDim2.new(0.5, 0, 0.5, 0)
     Window.Instance.AnchorPoint = Vector2.new(0.5, 0.5)
     Window.Instance.BackgroundColor3 = Theme.Background
+    Window.Instance.BackgroundTransparency = 0  -- EXPLICIT: Not transparent!
     Window.Instance.BorderSizePixel = 0
     Window.Instance.ZIndex = 10
-    Window.Instance.Parent = CoreGui
+    Window.Instance.Visible = true  -- EXPLICIT: Make visible
 
+    print("[Window] Main frame created")
+    print("[Window] BackgroundColor3:", Window.Instance.BackgroundColor3)
+    print("[Window] BackgroundTransparency:", Window.Instance.BackgroundTransparency)
+    print("[Window] Visible:", Window.Instance.Visible)
+
+    -- Parent to CoreGui
+    Window.Instance.Parent = CoreGui
+    print("[Window] Parent set to CoreGui")
+    print("[Window] Parent:", Window.Instance.Parent)
+
+    -- Add corner
     AddCorner(Window.Instance, UDim.new(0, 10))
+
+    -- Add stroke
     AddStroke(Window.Instance, Theme.Border, 1)
 
     -- Title bar
     Window.TitleBar = InstanceNew("Frame")
     Window.TitleBar.Size = UDim2.new(1, 0, 0, 40)
     Window.TitleBar.BackgroundColor3 = Theme.SecondaryBackground
+    Window.TitleBar.BackgroundTransparency = 0  -- EXPLICIT
     Window.TitleBar.BorderSizePixel = 0
     Window.TitleBar.ZIndex = 2
     Window.TitleBar.Parent = Window.Instance
 
-    local TitleCorner = InstanceNew("UICorner")
-    TitleCorner.CornerRadius = UDim.new(0, 10)
-    TitleCorner.Parent = Window.TitleBar
+    print("[Window] Title bar created")
 
+    AddCorner(Window.TitleBar, UDim.new(0, 10))
+
+    -- Corner fix
     local CornerFix = InstanceNew("Frame")
     CornerFix.Size = UDim2.new(1, 0, 0, 10)
     CornerFix.Position = UDim2.new(0, 0, 1, -10)
     CornerFix.BackgroundColor3 = Theme.SecondaryBackground
+    CornerFix.BackgroundTransparency = 0
     CornerFix.BorderSizePixel = 0
     CornerFix.ZIndex = 2
     CornerFix.Parent = Window.TitleBar
@@ -146,12 +180,15 @@ function Library:Window(Data)
     Window.Title.ZIndex = 3
     Window.Title.Parent = Window.TitleBar
 
+    print("[Window] Title text created")
+
     -- Close button
     Window.CloseBtn = InstanceNew("TextButton")
     Window.CloseBtn.Size = UDim2.new(0, 26, 0, 26)
     Window.CloseBtn.Position = UDim2.new(1, -40, 0.5, 0)
     Window.CloseBtn.AnchorPoint = Vector2.new(0, 0.5)
     Window.CloseBtn.BackgroundColor3 = Theme.Error
+    Window.CloseBtn.BackgroundTransparency = 0
     Window.CloseBtn.Text = "×"
     Window.CloseBtn.TextColor3 = Theme.Text
     Window.CloseBtn.TextSize = 18
@@ -163,8 +200,6 @@ function Library:Window(Data)
     AddCorner(Window.CloseBtn, UDim.new(0, 6))
 
     Window.CloseBtn.MouseButton1Click:Connect(function()
-        CreateTween(Window.Instance, {Size = UDim2.new(0, 0, 0, 0)}, 0.2)
-        task.wait(0.2)
         Window.Instance:Destroy()
     end)
 
@@ -180,6 +215,7 @@ function Library:Window(Data)
     Window.Sidebar = InstanceNew("Frame")
     Window.Sidebar.Size = UDim2.new(0, 120, 1, 0)
     Window.Sidebar.BackgroundColor3 = Theme.SecondaryBackground
+    Window.Sidebar.BackgroundTransparency = 0
     Window.Sidebar.BorderSizePixel = 0
     Window.Sidebar.ZIndex = 1
     Window.Sidebar.Parent = Window.Content
@@ -229,11 +265,17 @@ function Library:Window(Data)
 
     insert(self.Windows, Window)
 
+    print("[Window] Window created successfully!")
+    print("[Window] Instance:", Window.Instance)
+    print("[Window] Instance.Parent:", Window.Instance.Parent)
+    print("[Window] Instance.Visible:", Window.Instance.Visible)
+
     -- PAGE METHOD
     function Window:Page(PageData)
         local PageName = PageData.Name or "Page"
         local PageIcon = PageData.Icon or "📄"
-        local Theme = Library.CurrentTheme
+
+        print("[Page] Creating page:", PageName)
 
         local Page = {}
         Page.Name = PageName
@@ -244,6 +286,7 @@ function Library:Window(Data)
         Page.Button = InstanceNew("TextButton")
         Page.Button.Size = UDim2.new(0.95, 0, 0, 32)
         Page.Button.BackgroundColor3 = Theme.TertiaryBackground
+        Page.Button.BackgroundTransparency = 0
         Page.Button.Text = ""
         Page.Button.AutoButtonColor = false
         Page.Button.ZIndex = 2
@@ -327,7 +370,8 @@ function Library:Window(Data)
         function Page:Section(SectionData)
             local SectionName = SectionData.Name or "Section"
             local SectionSide = SectionData.Side or "left"
-            local Theme = Library.CurrentTheme
+
+            print("[Section] Creating section:", SectionName)
 
             local Section = {}
             Section.Name = SectionName
@@ -337,6 +381,7 @@ function Library:Window(Data)
             Section.Container.Size = UDim2.new(0.48, 0, 0, 0)
             Section.Container.AutomaticSize = Enum.AutomaticSize.Y
             Section.Container.BackgroundColor3 = Theme.SecondaryBackground
+            Section.Container.BackgroundTransparency = 0
             Section.Container.BorderSizePixel = 0
             Section.Container.LayoutOrder = SectionSide == "left" and 1 or 2
             Section.Container.ZIndex = 2
@@ -371,13 +416,16 @@ function Library:Window(Data)
             insert(Page.Sections, Section)
             insert(Library.Sections, Section)
 
+            print("[Section] Section created:", SectionName)
+
             -- TOGGLE METHOD
             function Section:Toggle(Data)
                 local ToggleName = Data.Name or "Toggle"
                 local Default = Data.Default or false
                 local Flag = Data.Flag or "toggle_" .. tick()
                 local Callback = Data.Callback or function() end
-                local Theme = Library.CurrentTheme
+
+                print("[Toggle] Creating toggle:", ToggleName)
 
                 local Toggle = {}
                 Toggle.Name = ToggleName
@@ -408,6 +456,7 @@ function Library:Window(Data)
                 Toggle.Checkbox.Position = UDim2.new(1, -24, 0.5, 0)
                 Toggle.Checkbox.AnchorPoint = Vector2.new(0, 0.5)
                 Toggle.Checkbox.BackgroundColor3 = Default and Theme.ToggleOn or Theme.ToggleOff
+                Toggle.Checkbox.BackgroundTransparency = 0
                 Toggle.Checkbox.Text = ""
                 Toggle.Checkbox.AutoButtonColor = false
                 Toggle.Checkbox.ZIndex = 4
@@ -452,146 +501,17 @@ function Library:Window(Data)
                 Library.Flags[Flag] = Default
                 insert(Section.Elements, Toggle)
 
+                print("[Toggle] Toggle created:", ToggleName)
+
                 return Toggle
-            end
-
-            -- SLIDER METHOD
-            function Section:Slider(Data)
-                local SliderName = Data.Name or "Slider"
-                local Min = Data.Min or 0
-                local Max = Data.Max or 100
-                local Default = Data.Default or (Min + Max) / 2
-                local Suffix = Data.Suffix or ""
-                local Decimals = Data.Decimals or 0
-                local Flag = Data.Flag or "slider_" .. tick()
-                local Callback = Data.Callback or function() end
-                local Theme = Library.CurrentTheme
-
-                local Slider = {}
-                Slider.Name = SliderName
-                Slider.Flag = Flag
-                Slider.Min = Min
-                Slider.Max = Max
-                Slider.Value = Default
-                Slider.Suffix = Suffix
-                Slider.Decimals = Decimals
-                Slider.Callback = Callback
-                Slider.Dragging = false
-
-                Slider.Container = InstanceNew("Frame")
-                Slider.Container.Size = UDim2.new(1, 0, 0, 50)
-                Slider.Container.BackgroundTransparency = 1
-                Slider.Container.ZIndex = 3
-                Slider.Container.Parent = Section.Content
-
-                local HeaderFrame = InstanceNew("Frame")
-                HeaderFrame.Size = UDim2.new(1, 0, 0, 18)
-                HeaderFrame.BackgroundTransparency = 1
-                HeaderFrame.ZIndex = 4
-                HeaderFrame.Parent = Slider.Container
-
-                Slider.Label = InstanceNew("TextLabel")
-                Slider.Label.Size = UDim2.new(1, -50, 1, 0)
-                Slider.Label.BackgroundTransparency = 1
-                Slider.Label.Text = SliderName
-                Slider.Label.TextColor3 = Theme.Text
-                Slider.Label.TextSize = 12
-                Slider.Label.Font = Enum.Font.Gotham
-                Slider.Label.TextXAlignment = Enum.TextXAlignment.Left
-                Slider.Label.ZIndex = 5
-                Slider.Label.Parent = HeaderFrame
-
-                Slider.ValueLabel = InstanceNew("TextLabel")
-                Slider.ValueLabel.Size = UDim2.new(0, 45, 1, 0)
-                Slider.ValueLabel.Position = UDim2.new(1, -47, 0, 0)
-                Slider.ValueLabel.BackgroundTransparency = 1
-                Slider.ValueLabel.Text = format("%." .. Decimals .. "f", Default) .. Suffix
-                Slider.ValueLabel.TextColor3 = Theme.Accent
-                Slider.ValueLabel.TextSize = 11
-                Slider.ValueLabel.Font = Enum.Font.GothamBold
-                Slider.ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
-                Slider.ValueLabel.ZIndex = 5
-                Slider.ValueLabel.Parent = HeaderFrame
-
-                Slider.Track = InstanceNew("Frame")
-                Slider.Track.Size = UDim2.new(1, 0, 0, 8)
-                Slider.Track.Position = UDim2.new(0, 0, 0, 26)
-                Slider.Track.BackgroundColor3 = Theme.SliderTrack
-                Slider.Track.BorderSizePixel = 0
-                Slider.Track.ZIndex = 4
-                Slider.Track.Parent = Slider.Container
-
-                AddCorner(Slider.Track, UDim.new(0, 4))
-
-                Slider.Fill = InstanceNew("Frame")
-                Slider.Fill.Size = UDim2.new((Default - Min) / (Max - Min), 0, 1, 0)
-                Slider.Fill.BackgroundColor3 = Theme.SliderFill
-                Slider.Fill.BorderSizePixel = 0
-                Slider.Fill.ZIndex = 5
-                Slider.Fill.Parent = Slider.Track
-
-                AddCorner(Slider.Fill, UDim.new(0, 4))
-
-                Slider.Handle = InstanceNew("Frame")
-                Slider.Handle.Size = UDim2.new(0, 14, 0, 14)
-                Slider.Handle.Position = UDim2.new((Default - Min) / (Max - Min), -7, 0.5, 0)
-                Slider.Handle.AnchorPoint = Vector2.new(0.5, 0.5)
-                Slider.Handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                Slider.Handle.BorderSizePixel = 0
-                Slider.Handle.ZIndex = 6
-                Slider.Handle.Parent = Slider.Track
-
-                AddCorner(Slider.Handle, UDim.new(0, 4))
-                AddStroke(Slider.Handle, Theme.Border, 1)
-
-                function Slider:Set(Value)
-                    Value = clamp(Value, Min, Max)
-                    self.Value = Value
-                    local Percent = (Value - Min) / (Max - Min)
-                    self.Fill.Size = UDim2.new(Percent, 0, 1, 0)
-                    self.Handle.Position = UDim2.new(Percent, 0, 0.5, 0)
-                    self.ValueLabel.Text = format("%." .. Decimals .. "f", Value) .. Suffix
-                    Library.Flags[self.Flag] = Value
-                    self.Callback(Value)
-                end
-
-                local function UpdateSlider(Input)
-                    local RelativePos = (Input.Position.X - Slider.Track.AbsolutePosition.X) / Slider.Track.AbsoluteSize.X
-                    RelativePos = clamp(RelativePos, 0, 1)
-                    local NewValue = Min + (Max - Min) * RelativePos
-                    Slider:Set(NewValue)
-                end
-
-                Slider.Track.InputBegan:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        Slider.Dragging = true
-                        UpdateSlider(Input)
-                    end
-                end)
-
-                Slider.Track.InputEnded:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        Slider.Dragging = false
-                    end
-                end)
-
-                UserInputService.InputChanged:Connect(function(Input)
-                    if Slider.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
-                        UpdateSlider(Input)
-                    end
-                end)
-
-                Library.Flags[Flag] = Default
-                insert(Section.Elements, Slider)
-
-                return Slider
             end
 
             -- BUTTON METHOD
             function Section:Button(Data)
                 local ButtonName = Data.Name or "Button"
                 local Callback = Data.Callback or function() end
-                local Theme = Library.CurrentTheme
+
+                print("[Button] Creating button:", ButtonName)
 
                 local Button = {}
                 Button.Name = ButtonName
@@ -605,6 +525,7 @@ function Library:Window(Data)
                 Button.Instance = InstanceNew("TextButton")
                 Button.Instance.Size = UDim2.new(1, 0, 1, 0)
                 Button.Instance.BackgroundColor3 = Theme.Accent
+                Button.Instance.BackgroundTransparency = 0
                 Button.Instance.Text = ButtonName
                 Button.Instance.TextColor3 = Theme.Text
                 Button.Instance.TextSize = 13
@@ -616,6 +537,7 @@ function Library:Window(Data)
                 AddCorner(Button.Instance, UDim.new(0, 6))
 
                 Button.Instance.MouseButton1Click:Connect(function()
+                    print("[Button] Clicked:", ButtonName)
                     Callback()
                 end)
 
@@ -637,6 +559,8 @@ function Library:Window(Data)
 
                 insert(Section.Elements, Button)
 
+                print("[Button] Button created:", ButtonName)
+
                 return Button
             end
 
@@ -650,6 +574,8 @@ function Library:Window(Data)
         insert(Window.Pages, Page)
         insert(Library.Pages, Page)
 
+        print("[Page] Page created:", PageName)
+
         return Page
     end
 
@@ -660,7 +586,8 @@ end
 function Library:Notify(Data)
     local Text = Data.Text or "Notification"
     local Duration = Data.Duration or 3
-    local Theme = self.CurrentTheme
+
+    print("[Notify] Creating notification:", Text)
 
     if not self.NotifHolder then
         self.NotifHolder = InstanceNew("Frame")
@@ -681,9 +608,8 @@ function Library:Notify(Data)
     local Notification = InstanceNew("Frame")
     Notification.Size = UDim2.new(1, 0, 0, 50)
     Notification.BackgroundColor3 = Theme.Background
+    Notification.BackgroundTransparency = 0
     Notification.BorderSizePixel = 0
-    Notification.BackgroundTransparency = 1
-    Notification.TextTransparency = 1
     Notification.ZIndex = 101
     Notification.Parent = self.NotifHolder
 
@@ -719,6 +645,8 @@ function Library:Notify(Data)
         Notification:Destroy()
     end)
 
+    print("[Notify] Notification created")
+
     return Notification
 end
 
@@ -740,5 +668,7 @@ end
 
 -- EXPORT
 getgenv().MyUILibrary = Library
+
+print("[Library] Export complete. Library ready.")
 
 return Library
