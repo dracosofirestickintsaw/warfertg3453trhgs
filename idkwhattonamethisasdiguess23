@@ -1,1 +1,1482 @@
+--[[
+    MyCustomUI - A Modern Roblox UI Library
+    Built from scratch following industry patterns
 
+    Installation:
+    1. Copy this entire file into your Roblox project
+    2. Require the module or execute the code
+    3. Follow the example at the bottom to create your UI
+]]
+
+-- ============================================
+-- PART 1: CORE SETUP AND SERVICES
+-- ============================================
+
+-- Create a unique name for your library
+local LIBRARY_NAME = "MyCustomUI"
+
+-- Unload existing library if present
+if getgenv()[LIBRARY_NAME] then
+    getgenv()[LIBRARY_NAME]:Unload()
+end
+
+-- Main library declaration
+local MyCustomUI = {}
+
+-- Cache all Roblox services for better performance
+local Services = {
+    TweenService = game:GetService("TweenService"),
+    UserInputService = game:GetService("UserInputService"),
+    RunService = game:GetService("RunService"),
+    HttpService = game:GetService("HttpService"),
+    Players = game:GetService("Players"),
+    CoreGui = game:GetService("CoreGui")
+}
+
+-- Get local player reference
+local LocalPlayer = Services.Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- Cache frequently used functions (performance optimization)
+local Cache = {
+    -- Color functions
+    fromRGB = Color3.fromRGB,
+    fromHSV = Color3.fromHSV,
+    fromHex = Color3.fromHex,
+
+    -- Math functions
+    clamp = math.clamp,
+    floor = math.floor,
+    abs = math.abs,
+    sin = math.sin,
+    cos = math.cos,
+    rad = math.rad,
+
+    -- Table functions
+    insert = table.insert,
+    remove = table.remove,
+    find = table.find,
+    clone = table.clone,
+    unpack = table.unpack,
+
+    -- String functions
+    format = string.format,
+    sub = string.sub,
+    lower = string.lower,
+    upper = string.upper,
+    gsub = string.gsub,
+
+    -- Instance creation (cached for speed)
+    new = Instance.new
+}
+
+-- ============================================
+-- PART 2: THEME SYSTEM
+-- ============================================
+
+-- Define preset themes that your library can use
+MyCustomUI.Themes = {
+    Default = {
+        -- Background colors
+        Background = Cache.fromRGB(26, 26, 27),
+        SecondaryBackground = Cache.fromRGB(35, 35, 38),
+        TertiaryBackground = Cache.fromRGB(45, 45, 48),
+
+        -- Accent colors (main color scheme)
+        Accent = Cache.fromRGB(85, 170, 255),
+        AccentHover = Cache.fromRGB(105, 190, 255),
+        AccentDark = Cache.fromRGB(65, 150, 235),
+
+        -- Border colors
+        Border = Cache.fromRGB(55, 55, 58),
+        BorderLight = Cache.fromRGB(65, 65, 68),
+
+        -- Text colors
+        Text = Cache.fromRGB(255, 255, 255),
+        TextSecondary = Cache.fromRGB(180, 180, 185),
+        TextDisabled = Cache.fromRGB(100, 100, 105),
+
+        -- State colors
+        Success = Cache.fromRGB(85, 200, 120),
+        Warning = Cache.fromRGB(255, 185, 85),
+        Error = Cache.fromRGB(255, 85, 85),
+
+        -- Component specific
+        ToggleOn = Cache.fromRGB(85, 170, 255),
+        ToggleOff = Cache.fromRGB(65, 65, 68),
+        SliderFill = Cache.fromRGB(85, 170, 255),
+        SliderTrack = Cache.fromRGB(45, 45, 48),
+
+        -- Corner radius values (stored as UDim)
+        CornerRadius = UDim.new(0, 6),
+        SmallCornerRadius = UDim.new(0, 4),
+        LargeCornerRadius = UDim.new(0, 10)
+    },
+
+    Dark = {
+        Background = Cache.fromRGB(14, 14, 15),
+        SecondaryBackground = Cache.fromRGB(20, 20, 22),
+        TertiaryBackground = Cache.fromRGB(28, 28, 31),
+
+        Accent = Cache.fromRGB(255, 120, 85),
+        AccentHover = Cache.fromRGB(255, 140, 105),
+        AccentDark = Cache.fromRGB(235, 100, 65),
+
+        Border = Cache.fromRGB(40, 40, 43),
+        BorderLight = Cache.fromRGB(50, 50, 53),
+
+        Text = Cache.fromRGB(255, 255, 255),
+        TextSecondary = Cache.fromRGB(160, 160, 165),
+        TextDisabled = Cache.fromRGB(80, 80, 85),
+
+        Success = Cache.fromRGB(85, 200, 120),
+        Warning = Cache.fromRGB(255, 185, 85),
+        Error = Cache.fromRGB(255, 85, 85),
+
+        ToggleOn = Cache.fromRGB(255, 120, 85),
+        ToggleOff = Cache.fromRGB(40, 40, 43),
+        SliderFill = Cache.fromRGB(255, 120, 85),
+        SliderTrack = Cache.fromRGB(28, 28, 31),
+
+        CornerRadius = UDim.new(0, 6),
+        SmallCornerRadius = UDim.new(0, 4),
+        LargeCornerRadius = UDim.new(0, 10)
+    },
+
+    Synthwave = {
+        Background = Cache.fromRGB(15, 10, 30),
+        SecondaryBackground = Cache.fromRGB(25, 15, 45),
+        TertiaryBackground = Cache.fromRGB(35, 20, 60),
+
+        Accent = Cache.fromRGB(255, 80, 180),
+        AccentHover = Cache.fromRGB(255, 100, 200),
+        AccentDark = Cache.fromRGB(200, 60, 150),
+
+        Border = Cache.fromRGB(60, 30, 90),
+        BorderLight = Cache.fromRGB(80, 40, 110),
+
+        Text = Cache.fromRGB(255, 220, 255),
+        TextSecondary = Cache.fromRGB(200, 180, 210),
+        TextDisabled = Cache.fromRGB(100, 80, 120),
+
+        Success = Cache.fromRGB(100, 255, 180),
+        Warning = Cache.fromRGB(255, 200, 100),
+        Error = Cache.fromRGB(255, 100, 120),
+
+        ToggleOn = Cache.fromRGB(255, 80, 180),
+        ToggleOff = Cache.fromRGB(35, 20, 60),
+        SliderFill = Cache.fromRGB(255, 80, 180),
+        SliderTrack = Cache.fromRGB(25, 15, 45),
+
+        CornerRadius = UDim.new(0, 8),
+        SmallCornerRadius = UDim.new(0, 4),
+        LargeCornerRadius = UDim.new(0, 12)
+    }
+}
+
+-- Set default theme
+MyCustomUI.CurrentTheme = MyCustomUI.Themes.Default
+
+-- ============================================
+-- PART 3: ANIMATION SYSTEM
+-- ============================================
+
+-- Animation presets
+MyCustomUI.Animation = {
+    TweenTime = 0.2,
+    EasingStyle = Enum.EasingStyle.Quad,
+    EasingDirection = Enum.EasingDirection.Out,
+
+    FastTime = 0.1,
+    MediumTime = 0.2,
+    SlowTime = 0.4
+}
+
+-- Create a tween with preset animations
+function MyCustomUI:Tween(Object, Properties, Time, EasingStyle, EasingDirection, Callback)
+    local TweenInfo = TweenInfo.new(
+        Time or self.Animation.TweenTime,
+        EasingStyle or self.Animation.EasingStyle,
+        EasingDirection or self.Animation.EasingDirection
+    )
+
+    local Tween = Services.TweenService:Create(Object, TweenInfo, Properties)
+    Tween:Play()
+
+    if Callback then
+        Tween.Completed:Connect(Callback)
+    end
+
+    return Tween
+end
+
+-- Fade in animation
+function MyCustomUI:FadeIn(Object, Time, Callback)
+    Time = Time or self.Animation.TweenTime
+
+    -- Handle different object types
+    if Object:IsA("TextLabel") or Object:IsA("TextButton") then
+        Object.TextTransparency = 1
+        self:Tween(Object, {TextTransparency = 0}, Time, nil, nil, Callback)
+    end
+
+    if Object:IsA("Frame") or Object:IsA("ImageLabel") then
+        Object.BackgroundTransparency = 1
+        self:Tween(Object, {BackgroundTransparency = 0}, Time, nil, nil, Callback)
+    end
+
+    if Object:IsA("UIStroke") then
+        Object.Transparency = 1
+        self:Tween(Object, {Transparency = 0}, Time, nil, nil, Callback)
+    end
+end
+
+-- Fade out animation
+function MyCustomUI:FadeOut(Object, Time, Callback)
+    Time = Time or self.Animation.TweenTime
+
+    if Object:IsA("TextLabel") or Object:IsA("TextButton") then
+        self:Tween(Object, {TextTransparency = 1}, Time, nil, nil, Callback)
+    end
+
+    if Object:IsA("Frame") or Object:IsA("ImageLabel") then
+        self:Tween(Object, {BackgroundTransparency = 1}, Time, nil, nil, Callback)
+    end
+
+    if Object:IsA("UIStroke") then
+        self:Tween(Object, {Transparency = 1}, Time, nil, nil, Callback)
+    end
+end
+
+-- ============================================
+-- PART 4: UTILITY FUNCTIONS
+-- ============================================
+
+-- Create rounded corner
+function MyCustomUI:AddCorner(Parent, Radius)
+    local Corner = Cache.new("UICorner")
+    Corner.CornerRadius = Radius or self.CurrentTheme.CornerRadius
+    Corner.Parent = Parent
+    return Corner
+end
+
+-- Create stroke/border
+function MyCustomUI:AddStroke(Parent, Color, Thickness)
+    local Stroke = Cache.new("UIStroke")
+    Stroke.Color = Color or self.CurrentTheme.Border
+    Stroke.Thickness = Thickness or 1
+    Stroke.Parent = Parent
+    return Stroke
+end
+
+-- Create gradient
+function MyCustomUI:AddGradient(Parent, Color1, Color2, Rotation)
+    local Gradient = Cache.new("UIGradient")
+    Gradient.Color = ColorSequence.new(Color1, Color2)
+    Gradient.Rotation = Rotation or 90
+    Gradient.Parent = Parent
+    return Gradient
+end
+
+-- Create padding
+function MyCustomUI:AddPadding(Parent, Padding, LayoutOrder)
+    local PaddingObj = Cache.new("UIPadding")
+    PaddingObj.PaddingTop = UDim.new(0, Padding)
+    PaddingObj.PaddingBottom = UDim.new(0, Padding)
+    PaddingObj.PaddingLeft = UDim.new(0, Padding)
+    PaddingObj.PaddingRight = UDim.new(0, Padding)
+    PaddingObj.Parent = Parent
+    return PaddingObj
+end
+
+-- Create list layout
+function MyCustomUI:AddListLayout(Parent, Padding, SortOrder, FillDirection)
+    local Layout = Cache.new("UIListLayout")
+    Layout.Padding = UDim.new(0, Padding or 5)
+    Layout.SortOrder = SortOrder or Enum.SortOrder.LayoutOrder
+    Layout.FillDirection = FillDirection or Enum.FillDirection.Vertical
+    Layout.Parent = Parent
+    return Layout
+end
+
+-- ============================================
+-- PART 5: LIBRARY CONFIGURATION
+-- ============================================
+
+-- Default configuration
+MyCustomUI.Config = {
+    MenuKeybind = Enum.KeyCode.RightControl,
+    MenuKeybindString = "RightControl",
+    MenuKeybindAlt = Enum.KeyCode.Minus,
+    SaveFolder = "MyCustomUI",
+    ConfigFolder = "MyCustomUI/Configs",
+    AssetsFolder = "MyCustomUI/Assets"
+}
+
+-- Flags storage (for saving/loading configurations)
+MyCustomUI.Flags = {}
+
+-- Track all connections for cleanup
+MyCustomUI.Connections = {}
+
+-- Track all created windows
+MyCustomUI.Windows = {}
+
+-- Track all pages
+MyCustomUI.Pages = {}
+
+-- Track current page
+MyCustomUI.CurrentPage = nil
+
+-- ============================================
+-- PART 6: WINDOW CREATION
+-- ============================================
+
+function MyCustomUI:Window(Data)
+    -- Validate and set defaults
+    local Name = Data.Name or "My Window"
+    local Size = Data.Size or UDim2.new(0, 550, 0, 450)
+    local Position = Data.Position or UDim2.new(0.5, 0, 0.5, 0)
+    local Theme = Data.Theme or "Default"
+
+    -- Apply custom theme if specified
+    if self.Themes[Theme] then
+        self.CurrentTheme = self.Themes[Theme]
+    end
+
+    -- Create main container
+    local Window = {}
+    Window.Name = Name
+    Window.Elements = {}
+    Window.Pages = {}
+    Window.IsOpen = true
+
+    -- Main frame
+    Window.Instance = Cache.new("Frame")
+    Window.Instance.Name = Name
+    Window.Instance.Size = Size
+    Window.Instance.Position = Position
+    Window.Instance.AnchorPoint = Vector2.new(0.5, 0.5)
+    Window.Instance.BackgroundColor3 = self.CurrentTheme.Background
+    Window.Instance.BorderSizePixel = 0
+    Window.Instance.ZIndex = 10
+    Window.Instance.Parent = Services.CoreGui
+
+    -- Add corner and stroke
+    self:AddCorner(Window.Instance, self.CurrentTheme.LargeCornerRadius)
+    self:AddStroke(Window.Instance, self.CurrentTheme.Border, 1)
+
+    -- Shadow effect (visual polish)
+    local Shadow = Cache.new("ImageLabel")
+    Shadow.Name = "Shadow"
+    Shadow.Size = UDim2.new(1, 30, 1, 30)
+    Shadow.Position = UDim2.new(0, -15, 0, -15)
+    Shadow.BackgroundTransparency = 1
+    Shadow.Image = "rbxassetid://5554236805"
+    Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    Shadow.ImageTransparency = 0.5
+    Shadow.ScaleType = Enum.ScaleType.Slice
+    Shadow.SliceCenter = Rect.new(23, 23, 277, 277)
+    Shadow.ZIndex = 1
+    Shadow.Parent = Window.Instance
+
+    -- Title bar
+    Window.TitleBar = Cache.new("Frame")
+    Window.TitleBar.Name = "TitleBar"
+    Window.TitleBar.Size = UDim2.new(1, 0, 0, 45)
+    Window.TitleBar.BackgroundColor3 = self.CurrentTheme.SecondaryBackground
+    Window.TitleBar.BackgroundTransparency = 0
+    Window.TitleBar.BorderSizePixel = 0
+    Window.TitleBar.ZIndex = 2
+    Window.TitleBar.Parent = Window.Instance
+
+    -- Title bar corner (top only)
+    local TitleCorner = Cache.new("UICorner")
+    TitleCorner.CornerRadius = self.CurrentTheme.LargeCornerRadius
+    TitleCorner.Parent = Window.TitleBar
+
+    -- Remove bottom corners from title bar
+    local TitleCornerFix = Cache.new("Frame")
+    TitleCornerFix.Name = "CornerFix"
+    TitleCornerFix.Size = UDim2.new(1, 0, 0, 10)
+    TitleCornerFix.Position = UDim2.new(0, 0, 1, -10)
+    TitleCornerFix.BackgroundColor3 = self.CurrentTheme.SecondaryBackground
+    TitleCornerFix.BorderSizePixel = 0
+    TitleCornerFix.ZIndex = 2
+    TitleCornerFix.Parent = Window.TitleBar
+
+    -- Title text
+    Window.Title = Cache.new("TextLabel")
+    Window.Title.Name = "Title"
+    Window.Title.Size = UDim2.new(1, -50, 1, 0)
+    Window.Title.Position = UDim2.new(0, 15, 0, 0)
+    Window.Title.BackgroundTransparency = 1
+    Window.Title.Text = Name
+    Window.Title.TextColor3 = self.CurrentTheme.Text
+    Window.Title.TextSize = 16
+    Window.Title.Font = Enum.Font.GothamBold
+    Window.Title.TextXAlignment = Enum.TextXAlignment.Left
+    Window.Title.ZIndex = 3
+    Window.Title.Parent = Window.TitleBar
+
+    -- Version text (optional)
+    if Data.Version then
+        Window.Version = Cache.new("TextLabel")
+        Window.Version.Name = "Version"
+        Window.Version.Size = UDim2.new(0, 100, 1, 0)
+        Window.Version.Position = UDim2.new(1, -115, 0, 0)
+        Window.Version.BackgroundTransparency = 1
+        Window.Version.Text = "v" .. Data.Version
+        Window.Version.TextColor3 = self.CurrentTheme.TextSecondary
+        Window.Version.TextSize = 12
+        Window.Version.Font = Enum.Font.Gotham
+        Window.Version.TextXAlignment = Enum.TextXAlignment.Right
+        Window.Version.ZIndex = 3
+        Window.Version.Parent = Window.TitleBar
+    end
+
+    -- Minimize button
+    Window.MinimizeBtn = Cache.new("TextButton")
+    Window.MinimizeBtn.Name = "Minimize"
+    Window.MinimizeBtn.Size = UDim2.new(0, 26, 0, 26)
+    Window.MinimizeBtn.Position = UDim2.new(1, -80, 0.5, 0)
+    Window.MinimizeBtn.AnchorPoint = Vector2.new(0, 0.5)
+    Window.MinimizeBtn.BackgroundColor3 = self.CurrentTheme.TertiaryBackground
+    Window.MinimizeBtn.Text = "−"
+    Window.MinimizeBtn.TextColor3 = self.CurrentTheme.Text
+    Window.MinimizeBtn.TextSize = 18
+    Window.MinimizeBtn.Font = Enum.Font.GothamBold
+    Window.MinimizeBtn.ZIndex = 3
+    Window.MinimizeBtn.AutoButtonColor = false
+    Window.MinimizeBtn.Parent = Window.TitleBar
+
+    self:AddCorner(Window.MinimizeBtn, self.CurrentTheme.SmallCornerRadius)
+
+    -- Close button
+    Window.CloseBtn = Cache.new("TextButton")
+    Window.CloseBtn.Name = "Close"
+    Window.CloseBtn.Size = UDim2.new(0, 26, 0, 26)
+    Window.CloseBtn.Position = UDim2.new(1, -45, 0.5, 0)
+    Window.CloseBtn.AnchorPoint = Vector2.new(0, 0.5)
+    Window.CloseBtn.BackgroundColor3 = self.CurrentTheme.Error
+    Window.CloseBtn.Text = "×"
+    Window.CloseBtn.TextColor3 = self.CurrentTheme.Text
+    Window.CloseBtn.TextSize = 18
+    Window.CloseBtn.Font = Enum.Font.GothamBold
+    Window.CloseBtn.ZIndex = 3
+    Window.CloseBtn.AutoButtonColor = false
+    Window.CloseBtn.Parent = Window.TitleBar
+
+    self:AddCorner(Window.CloseBtn, self.CurrentTheme.SmallCornerRadius)
+
+    -- Close button click
+    local function OnCloseClick()
+        self:Tween(Window.Instance, {Size = UDim2.new(0, 0, 0, 0)}, 0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In, function()
+            Window.Instance:Destroy()
+            Window.IsOpen = false
+        end)
+    end
+
+    Window.CloseBtn.MouseButton1Click:Connect(OnCloseClick)
+
+    -- Minimize button click
+    local function OnMinimizeClick()
+        Window.IsOpen = not Window.IsOpen
+
+        if Window.IsOpen then
+            self:Tween(Window.Instance, {Size = Size}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            self:Tween(Window.MinimizeBtn, {Rotation = 0}, 0.2)
+        else
+            self:Tween(Window.Instance, {Size = UDim2.new(0, Size.X.Scale * 550, 0, 45)}, 0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            self:Tween(Window.MinimizeBtn, {Rotation = 45}, 0.2)
+        end
+    end
+
+    Window.MinimizeBtn.MouseButton1Click:Connect(OnMinimizeClick)
+
+    -- Button hover effects
+    local function AddButtonHover(Button, HoverColor, NormalColor)
+        Button.MouseEnter:Connect(function()
+            self:Tween(Button, {BackgroundColor3 = HoverColor}, 0.1)
+        end)
+
+        Button.MouseLeave:Connect(function()
+            self:Tween(Button, {BackgroundColor3 = NormalColor}, 0.1)
+        end)
+    end
+
+    AddButtonHover(Window.MinimizeBtn, self.CurrentTheme.Accent, self.CurrentTheme.TertiaryBackground)
+    AddButtonHover(Window.CloseBtn, Cache.fromRGB(200, 60, 60), self.CurrentTheme.Error)
+
+    -- Content area (will hold sidebar and pages)
+    Window.Content = Cache.new("Frame")
+    Window.Content.Name = "Content"
+    Window.Content.Size = UDim2.new(1, -10, 1, -55)
+    Window.Content.Position = UDim2.new(0, 5, 0, 50)
+    Window.Content.BackgroundTransparency = 1
+    Window.Content.ZIndex = 2
+    Window.Content.Parent = Window.Instance
+
+    -- Sidebar for page navigation
+    Window.Sidebar = Cache.new("Frame")
+    Window.Sidebar.Name = "Sidebar"
+    Window.Sidebar.Size = UDim2.new(0, 130, 1, 0)
+    Window.Sidebar.BackgroundColor3 = self.CurrentTheme.SecondaryBackground
+    Window.Sidebar.BackgroundTransparency = 0
+    Window.Sidebar.BorderSizePixel = 0
+    Window.Sidebar.ZIndex = 1
+    Window.Sidebar.Parent = Window.Content
+
+    self:AddCorner(Window.Sidebar, self.CurrentTheme.CornerRadius)
+
+    -- Sidebar layout
+    local SidebarLayout = Cache.new("UIListLayout")
+    SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    SidebarLayout.Padding = UDim.new(0, 5)
+    SidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    SidebarLayout.Parent = Window.Sidebar
+
+    -- Sidebar padding
+    local SidebarPadding = Cache.new("UIPadding")
+    SidebarPadding.PaddingTop = UDim.new(0, 8)
+    SidebarPadding.PaddingBottom = UDim.new(0, 8)
+    SidebarPadding.Parent = Window.Sidebar
+
+    -- Page container
+    Window.PageContainer = Cache.new("Frame")
+    Window.PageContainer.Name = "PageContainer"
+    Window.PageContainer.Size = UDim2.new(1, -140, 1, 0)
+    Window.PageContainer.Position = UDim2.new(0, 135, 0, 0)
+    Window.PageContainer.BackgroundTransparency = 1
+    Window.PageContainer.ZIndex = 1
+    Window.PageContainer.Parent = Window.Content
+
+    -- ============================================
+    -- DRAGGING SYSTEM
+    -- ============================================
+
+    Window.Dragging = false
+    Window.DragStart = nil
+    Window.StartPos = nil
+
+    local function StartDrag(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 or
+           Input.UserInputType == Enum.UserInputType.Touch then
+            Window.Dragging = true
+            Window.DragStart = Input.Position
+            Window.StartPos = Window.Instance.Position
+        end
+    end
+
+    local function UpdateDrag(Input)
+        if Window.Dragging then
+            local Delta = Input.Position - Window.DragStart
+            Window.Instance.Position = UDim2.new(
+                Window.StartPos.X.Scale, Window.StartPos.X.Offset + Delta.X,
+                Window.StartPos.Y.Scale, Window.StartPos.Y.Offset + Delta.Y
+            )
+        end
+    end
+
+    local function EndDrag(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 or
+           Input.UserInputType == Enum.UserInputType.Touch then
+            Window.Dragging = false
+        end
+    end
+
+    Window.TitleBar.InputBegan:Connect(StartDrag)
+    Window.TitleBar.InputEnded:Connect(EndDrag)
+    Services.UserInputService.InputChanged:Connect(UpdateDrag)
+
+    -- Track window
+    Cache.insert(self.Windows, Window)
+
+    -- ============================================
+    -- PAGE METHOD
+    -- ============================================
+
+    function Window:Page(PageData)
+        local PageName = PageData.Name or "Page"
+        local PageIcon = PageData.Icon or "📄"
+
+        local Page = {}
+        Page.Name = PageName
+        Page.Window = self
+        Page.Elements = {}
+
+        -- Create page button
+        Page.Button = Cache.new("TextButton")
+        Page.Button.Name = PageName
+        Page.Button.Size = UDim2.new(0.95, 0, 0, 35)
+        Page.Button.BackgroundColor3 = MyCustomUI.CurrentTheme.TertiaryBackground
+        Page.Button.Text = ""
+        Page.Button.AutoButtonColor = false
+        Page.Button.ZIndex = 2
+        Page.Button.Parent = self.Sidebar
+
+        MyCustomUI:AddCorner(Page.Button, MyCustomUI.CurrentTheme.SmallCornerRadius)
+
+        -- Icon
+        Page.Icon = Cache.new("TextLabel")
+        Page.Icon.Name = "Icon"
+        Page.Icon.Size = UDim2.new(0, 30, 1, 0)
+        Page.Icon.Position = UDim2.new(0, 5, 0, 0)
+        Page.Icon.BackgroundTransparency = 1
+        Page.Icon.Text = PageIcon
+        Page.Icon.TextSize = 18
+        Page.Icon.ZIndex = 3
+        Page.Icon.Parent = Page.Button
+
+        -- Text
+        Page.Text = Cache.new("TextLabel")
+        Page.Text.Name = "Text"
+        Page.Text.Size = UDim2.new(1, -35, 1, 0)
+        Page.Text.Position = UDim2.new(0, 35, 0, 0)
+        Page.Text.BackgroundTransparency = 1
+        Page.Text.Text = PageName
+        Page.Text.TextColor3 = MyCustomUI.CurrentTheme.Text
+        Page.Text.TextSize = 13
+        Page.Text.Font = Enum.Font.Gotham
+        Page.Text.TextXAlignment = Enum.TextXAlignment.Left
+        Page.Text.ZIndex = 3
+        Page.Text.Parent = Page.Button
+
+        -- Create page content
+        Page.Content = Cache.new("Frame")
+        Page.Content.Name = PageName
+        Page.Content.Size = UDim2.new(1, 0, 1, 0)
+        Page.Content.BackgroundTransparency = 1
+        Page.Content.Visible = false
+        Page.Content.ZIndex = 1
+        Page.Content.Parent = self.PageContainer
+
+        -- Scroll frame for page content
+        Page.ScrollFrame = Cache.new("ScrollingFrame")
+        Page.ScrollFrame.Name = "ScrollFrame"
+        Page.ScrollFrame.Size = UDim2.new(1, 0, 1, 0)
+        Page.ScrollFrame.BackgroundTransparency = 1
+        Page.ScrollFrame.BorderSizePixel = 0
+        Page.ScrollFrame.ScrollBarThickness = 4
+        Page.ScrollFrame.ScrollBarImageColor3 = MyCustomUI.CurrentTheme.Accent
+        Page.ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+        Page.ScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        Page.ScrollFrame.ScrollingEnabled = true
+        Page.ScrollFrame.ZIndex = 1
+        Page.ScrollFrame.Parent = Page.Content
+
+        -- Scroll frame layout
+        local ScrollLayout = Cache.new("UIListLayout")
+        ScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        ScrollLayout.Padding = UDim.new(0, 8)
+        ScrollLayout.Parent = Page.ScrollFrame
+
+        -- Scroll frame padding
+        local ScrollPadding = Cache.new("UIPadding")
+        ScrollPadding.PaddingTop = UDim.new(0, 5)
+        ScrollPadding.PaddingBottom = UDim.new(0, 10)
+        ScrollPadding.PaddingLeft = UDim.new(0, 5)
+        ScrollPadding.PaddingRight = UDim.new(0, 5)
+        ScrollPadding.Parent = Page.ScrollFrame
+
+        -- Page click handler
+        local function SelectPage()
+            -- Deselect all other pages
+            for _, P in ipairs(self.Window.Pages) do
+                P.Content.Visible = false
+                P.Button.BackgroundColor3 = MyCustomUI.CurrentTheme.TertiaryBackground
+                P.Text.TextColor3 = MyCustomUI.CurrentTheme.Text
+            end
+
+            -- Select this page
+            Page.Content.Visible = true
+            Page.Button.BackgroundColor3 = MyCustomUI.CurrentTheme.Accent
+            Page.Text.TextColor3 = MyCustomUI.CurrentTheme.Text
+
+            MyCustomUI.CurrentPage = Page
+        end
+
+        Page.Button.MouseButton1Click:Connect(SelectPage)
+
+        -- Button hover effect
+        Page.Button.MouseEnter:Connect(function()
+            if Page.Content.Visible ~= true then
+                MyCustomUI:Tween(Page.Button, {BackgroundColor3 = MyCustomUI.CurrentTheme.SecondaryBackground}, 0.1)
+            end
+        end)
+
+        Page.Button.MouseLeave:Connect(function()
+            if Page.Content.Visible ~= true then
+                MyCustomUI:Tween(Page.Button, {BackgroundColor3 = MyCustomUI.CurrentTheme.TertiaryBackground}, 0.1)
+            end
+        end)
+
+        -- Add section method
+        function Page:Section(SectionData)
+            local SectionName = SectionData.Name or "Section"
+            local SectionSide = SectionData.Side or "left"
+
+            local Section = {}
+            Section.Name = SectionName
+            Section.Page = self
+            Section.Elements = {}
+
+            -- Section container
+            Section.Container = Cache.new("Frame")
+            Section.Container.Name = SectionName
+            Section.Container.Size = UDim2.new(0.48, 0, 0, 0)
+            Section.Container.AutomaticSize = Enum.AutomaticSize.Y
+            Section.Container.BackgroundColor3 = MyCustomUI.CurrentTheme.SecondaryBackground
+            Section.Container.BorderSizePixel = 0
+            Section.Container.LayoutOrder = SectionSide == "left" and 1 or 2
+            Section.Container.ZIndex = 2
+            Section.Container.Parent = self.ScrollFrame
+
+            MyCustomUI:AddCorner(Section.Container, MyCustomUI.CurrentTheme.CornerRadius)
+            MyCustomUI:AddStroke(Section.Container, MyCustomUI.CurrentTheme.Border, 1)
+
+            -- Section header
+            Section.Header = Cache.new("TextLabel")
+            Section.Header.Name = "Header"
+            Section.Header.Size = UDim2.new(1, -16, 0, 30)
+            Section.Header.Position = UDim2.new(0, 8, 0, 8)
+            Section.Header.BackgroundTransparency = 1
+            Section.Header.Text = SectionName
+            Section.Header.TextColor3 = MyCustomUI.CurrentTheme.Text
+            Section.Header.TextSize = 14
+            Section.Header.Font = Enum.Font.GothamBold
+            Section.Header.TextXAlignment = Enum.TextXAlignment.Left
+            Section.Header.ZIndex = 3
+            Section.Header.Parent = Section.Container
+
+            -- Section content
+            Section.Content = Cache.new("Frame")
+            Section.Content.Name = "Content"
+            Section.Content.Size = UDim2.new(1, -16, 0, 0)
+            Section.Content.Position = UDim2.new(0, 8, 0, 40)
+            Section.Content.AutomaticSize = Enum.AutomaticSize.Y
+            Section.Content.BackgroundTransparency = 1
+            Section.Content.ZIndex = 2
+            Section.Content.Parent = Section.Container
+
+            -- Section content layout
+            local ContentLayout = Cache.new("UIListLayout")
+            ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            ContentLayout.Padding = UDim.new(0, 5)
+            ContentLayout.Parent = Section.Content
+
+            -- Track section
+            Cache.insert(self.Elements, Section)
+
+            return Section
+        end
+
+        -- Select first page by default
+        if #self.Window.Pages == 0 then
+            SelectPage()
+        end
+
+        Cache.insert(self.Pages, Page)
+        Cache.insert(self.Window.Pages, Page)
+        Cache.insert(MyCustomUI.Pages, Page)
+
+        return Page
+    end
+
+    -- Add drag input for smooth dragging
+    Window.TitleBar.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local DragInput = Input
+            Window.DragStart = Input.Position
+            Window.StartPos = Window.Instance.Position
+        end
+    end)
+
+    return Window
+end
+
+-- ============================================
+-- PART 7: UI COMPONENTS
+-- ============================================
+
+-- TOGGLE COMPONENT
+function MyCustomUI:CreateToggle(Section, Data)
+    local Name = Data.Name or "Toggle"
+    local Default = Data.Default or false
+    local Flag = Data.Flag
+    local Callback = Data.Callback or function() end
+
+    -- Generate flag if not provided
+    if not Flag then
+        Flag = "toggle_" .. Cache.format("%.0f", tick())
+    end
+
+    local Toggle = {}
+    Toggle.Name = Name
+    Toggle.Flag = Flag
+    Toggle.Value = Default
+    Toggle.Callback = Callback
+
+    -- Container
+    Toggle.Container = Cache.new("Frame")
+    Toggle.Container.Name = Name
+    Toggle.Container.Size = UDim2.new(1, 0, 0, 32)
+    Toggle.Container.BackgroundTransparency = 1
+    Toggle.Container.ZIndex = 3
+    Toggle.Container.Parent = Section.Content
+
+    -- Label
+    Toggle.Label = Cache.new("TextLabel")
+    Toggle.Label.Name = "Label"
+    Toggle.Label.Size = UDim2.new(1, -50, 1, 0)
+    Toggle.Label.BackgroundTransparency = 1
+    Toggle.Label.Text = Name
+    Toggle.Label.TextColor3 = self.CurrentTheme.Text
+    Toggle.Label.TextSize = 13
+    Toggle.Label.Font = Enum.Font.Gotham
+    Toggle.Label.TextXAlignment = Enum.TextXAlignment.Left
+    Toggle.Label.TextYAlignment = Enum.TextYAlignment.Center
+    Toggle.Label.ZIndex = 4
+    Toggle.Label.Parent = Toggle.Container
+
+    -- Checkbox
+    Toggle.Checkbox = Cache.new("TextButton")
+    Toggle.Checkbox.Name = "Checkbox"
+    Toggle.Checkbox.Size = UDim2.new(0, 24, 0, 24)
+    Toggle.Checkbox.Position = UDim2.new(1, -26, 0.5, 0)
+    Toggle.Checkbox.AnchorPoint = Vector2.new(0, 0.5)
+    Toggle.Checkbox.BackgroundColor3 = Default and self.CurrentTheme.ToggleOn or self.CurrentTheme.ToggleOff
+    Toggle.Checkbox.Text = ""
+    Toggle.Checkbox.AutoButtonColor = false
+    Toggle.Checkbox.ZIndex = 4
+    Toggle.Checkbox.Parent = Toggle.Container
+
+    self:AddCorner(Toggle.Checkbox, UDim.new(0, 6))
+    self:AddStroke(Toggle.Checkbox, self.CurrentTheme.Border, 1)
+
+    -- Checkmark icon
+    Toggle.Checkmark = Cache.new("TextLabel")
+    Toggle.Checkmark.Name = "Checkmark"
+    Toggle.Checkmark.Size = UDim2.new(1, 0, 1, 0)
+    Toggle.Checkmark.BackgroundTransparency = 1
+    Toggle.Checkmark.Text = "✓"
+    Toggle.Checkmark.TextColor3 = self.CurrentTheme.Text
+    Toggle.Checkmark.TextSize = 14
+    Toggle.Checkmark.Font = Enum.Font.GothamBold
+    Toggle.Checkmark.Visible = Default
+    Toggle.Checkmark.ZIndex = 5
+    Toggle.Checkmark.Parent = Toggle.Checkbox
+
+    -- Set method
+    function Toggle:Set(Value)
+        self.Value = Value
+        self.Checkmark.Visible = Value
+        self.Checkbox.BackgroundColor3 = Value and self.CurrentTheme.ToggleOn or self.CurrentTheme.ToggleOff
+        self.Callback(Value)
+        self:OnChanged(Value)
+    end
+
+    -- OnChanged event (for external tracking)
+    Toggle.OnChanged = function() end
+
+    function Toggle:OnChanged(Callback)
+        self._OnChanged = Callback
+    end
+
+    -- Click handler
+    Toggle.Checkbox.MouseButton1Click:Connect(function()
+        Toggle:Set(not Toggle.Value)
+    end)
+
+    -- Hover effect
+    Toggle.Checkbox.MouseEnter:Connect(function()
+        local TargetColor = Toggle.Value and self.CurrentTheme.AccentHover or self.CurrentTheme.SecondaryBackground
+        self:Tween(Toggle.Checkbox, {BackgroundColor3 = TargetColor}, 0.1)
+    end)
+
+    Toggle.Checkbox.MouseLeave:Connect(function()
+        local TargetColor = Toggle.Value and self.CurrentTheme.ToggleOn or self.CurrentTheme.ToggleOff
+        self:Tween(Toggle.Checkbox, {BackgroundColor3 = TargetColor}, 0.1)
+    end)
+
+    -- Store in flags
+    self.Flags[Flag] = Default
+    Cache.insert(Section.Elements, Toggle)
+
+    return Toggle
+end
+
+-- SLIDER COMPONENT
+function MyCustomUI:CreateSlider(Section, Data)
+    local Name = Data.Name or "Slider"
+    local Min = Data.Min or 0
+    local Max = Data.Max or 100
+    local Default = Data.Default or (Min + Max) / 2
+    local Suffix = Data.Suffix or ""
+    local Decimals = Data.Decimals or 0
+    local Flag = Data.Flag
+    local Callback = Data.Callback or function() end
+
+    -- Generate flag if not provided
+    if not Flag then
+        Flag = "slider_" .. Cache.format("%.0f", tick())
+    end
+
+    local Slider = {}
+    Slider.Name = Name
+    Slider.Flag = Flag
+    Slider.Min = Min
+    Slider.Max = Max
+    Slider.Value = Default
+    Slider.Suffix = Suffix
+    Slider.Decimals = Decimals
+    Slider.Callback = Callback
+    Slider.Dragging = false
+
+    -- Container
+    Slider.Container = Cache.new("Frame")
+    Slider.Container.Name = Name
+    Slider.Container.Size = UDim2.new(1, 0, 0, 55)
+    Slider.Container.BackgroundTransparency = 1
+    Slider.Container.ZIndex = 3
+    Slider.Container.Parent = Section.Content
+
+    -- Header
+    Slider.Header = Cache.new("Frame")
+    Slider.Header.Name = "Header"
+    Slider.Header.Size = UDim2.new(1, 0, 0, 20)
+    Slider.Header.BackgroundTransparency = 1
+    Slider.Header.ZIndex = 4
+    Slider.Header.Parent = Slider.Container
+
+    -- Label
+    Slider.Label = Cache.new("TextLabel")
+    Slider.Label.Name = "Label"
+    Slider.Label.Size = UDim2.new(1, -50, 1, 0)
+    Slider.Label.BackgroundTransparency = 1
+    Slider.Label.Text = Name
+    Slider.Label.TextColor3 = self.CurrentTheme.Text
+    Slider.Label.TextSize = 13
+    Slider.Label.Font = Enum.Font.Gotham
+    Slider.Label.TextXAlignment = Enum.TextXAlignment.Left
+    Slider.Label.ZIndex = 5
+    Slider.Label.Parent = Slider.Header
+
+    -- Value display
+    Slider.ValueLabel = Cache.new("TextLabel")
+    Slider.ValueLabel.Name = "Value"
+    Slider.ValueLabel.Size = UDim2.new(0, 45, 1, 0)
+    Slider.ValueLabel.Position = UDim2.new(1, -47, 0, 0)
+    Slider.ValueLabel.BackgroundTransparency = 1
+    Slider.ValueLabel.Text = Cache.format("%." .. Decimals .. "f", Default) .. Suffix
+    Slider.ValueLabel.TextColor3 = self.CurrentTheme.Accent
+    Slider.ValueLabel.TextSize = 12
+    Slider.ValueLabel.Font = Enum.Font.GothamBold
+    Slider.ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    Slider.ValueLabel.ZIndex = 5
+    Slider.ValueLabel.Parent = Slider.Header
+
+    -- Track
+    Slider.Track = Cache.new("Frame")
+    Slider.Track.Name = "Track"
+    Slider.Track.Size = UDim2.new(1, 0, 0, 8)
+    Slider.Track.Position = UDim2.new(0, 0, 0, 30)
+    Slider.Track.BackgroundColor3 = self.CurrentTheme.SliderTrack
+    Slider.Track.BorderSizePixel = 0
+    Slider.Track.ZIndex = 4
+    Slider.Track.Parent = Slider.Container
+
+    self:AddCorner(Slider.Track, UDim.new(0, 4))
+
+    -- Fill
+    Slider.Fill = Cache.new("Frame")
+    Slider.Fill.Name = "Fill"
+    Slider.Fill.Size = UDim2.new((Default - Min) / (Max - Min), 0, 1, 0)
+    Slider.Fill.BackgroundColor3 = self.CurrentTheme.SliderFill
+    Slider.Fill.BorderSizePixel = 0
+    Slider.Fill.ZIndex = 5
+    Slider.Fill.Parent = Slider.Track
+
+    self:AddCorner(Slider.Fill, UDim.new(0, 4))
+
+    -- Handle
+    Slider.Handle = Cache.new("Frame")
+    Slider.Handle.Name = "Handle"
+    Slider.Handle.Size = UDim2.new(0, 16, 0, 16)
+    Slider.Handle.Position = UDim2.new((Default - Min) / (Max - Min), -8, 0.5, 0)
+    Slider.Handle.AnchorPoint = Vector2.new(0.5, 0.5)
+    Slider.Handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Slider.Handle.BorderSizePixel = 0
+    Slider.Handle.ZIndex = 6
+    Slider.Handle.Parent = Slider.Track
+
+    self:AddCorner(Slider.Handle, UDim.new(0, 4))
+    self:AddStroke(Slider.Handle, self.CurrentTheme.Border, 1)
+
+    -- Set method
+    function Slider:Set(Value)
+        Value = Cache.clamp(Value, Min, Max)
+        self.Value = Value
+
+        local Percent = (Value - Min) / (Max - Min)
+        self.Fill.Size = UDim2.new(Percent, 0, 1, 0)
+        self.Handle.Position = UDim2.new(Percent, 0, 0.5, 0)
+        self.ValueLabel.Text = Cache.format("%." .. Decimals .. "f", Value) .. Suffix
+
+        self.Callback(Value)
+        self:OnChanged(Value)
+    end
+
+    Slider.OnChanged = function() end
+    function Slider:OnChanged(Callback)
+        self._OnChanged = Callback
+    end
+
+    -- Dragging logic
+    local function UpdateSlider(Input)
+        local RelativePos = (Input.Position.X - Slider.Track.AbsolutePosition.X) / Slider.Track.AbsoluteSize.X
+        RelativePos = Cache.clamp(RelativePos, 0, 1)
+        local NewValue = Min + (Max - Min) * RelativePos
+        Slider:Set(NewValue)
+    end
+
+    Slider.Track.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 or
+           Input.UserInputType == Enum.UserInputType.Touch then
+            Slider.Dragging = true
+            UpdateSlider(Input)
+        end
+    end)
+
+    Slider.Track.InputEnded:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 or
+           Input.UserInputType == Enum.UserInputType.Touch then
+            Slider.Dragging = false
+        end
+    end)
+
+    Services.UserInputService.InputChanged:Connect(function(Input)
+        if Slider.Dragging and
+           (Input.UserInputType == Enum.UserInputType.MouseMovement or
+            Input.UserInputType == Enum.UserInputType.Touch) then
+            UpdateSlider(Input)
+        end
+    end)
+
+    -- Store in flags
+    self.Flags[Flag] = Default
+    Cache.insert(Section.Elements, Slider)
+
+    return Slider
+end
+
+-- BUTTON COMPONENT
+function MyCustomUI:CreateButton(Section, Data)
+    local Name = Data.Name or "Button"
+    local Callback = Data.Callback or function() end
+
+    local Button = {}
+    Button.Name = Name
+    Button.Callback = Callback
+
+    -- Container
+    Button.Container = Cache.new("Frame")
+    Button.Container.Name = Name
+    Button.Container.Size = UDim2.new(1, 0, 0, 36)
+    Button.Container.BackgroundTransparency = 1
+    Button.Container.ZIndex = 3
+    Button.Container.Parent = Section.Content
+
+    -- Button
+    Button.Instance = Cache.new("TextButton")
+    Button.Instance.Name = "Button"
+    Button.Instance.Size = UDim2.new(1, 0, 1, 0)
+    Button.Instance.BackgroundColor3 = self.CurrentTheme.Accent
+    Button.Instance.Text = Name
+    Button.Instance.TextColor3 = self.CurrentTheme.Text
+    Button.Instance.TextSize = 13
+    Button.Instance.Font = Enum.Font.GothamBold
+    Button.Instance.AutoButtonColor = false
+    Button.Instance.ZIndex = 4
+    Button.Instance.Parent = Button.Container
+
+    self:AddCorner(Button.Instance, self.CurrentTheme.CornerRadius)
+
+    -- Click handler
+    Button.Instance.MouseButton1Click:Connect(function()
+        Callback()
+    end)
+
+    -- Hover effects
+    Button.Instance.MouseEnter:Connect(function()
+        self:Tween(Button.Instance, {BackgroundColor3 = self.CurrentTheme.AccentHover}, 0.1)
+    end)
+
+    Button.Instance.MouseLeave:Connect(function()
+        self:Tween(Button.Instance, {BackgroundColor3 = self.CurrentTheme.Accent}, 0.1)
+    end)
+
+    Button.Instance.MouseButton1Down:Connect(function()
+        self:Tween(Button.Instance, {BackgroundColor3 = self.CurrentTheme.AccentDark}, 0.05)
+    end)
+
+    Button.Instance.MouseButton1Up:Connect(function()
+        self:Tween(Button.Instance, {BackgroundColor3 = self.CurrentTheme.Accent}, 0.05)
+    end)
+
+    Cache.insert(Section.Elements, Button)
+
+    return Button
+end
+
+-- LABEL COMPONENT
+function MyCustomUI:CreateLabel(Section, Data)
+    local Text = Data.Text or "Label"
+    local Alignment = Data.Alignment or "left"
+
+    local Label = {}
+    Label.Text = Text
+
+    -- Container
+    Label.Container = Cache.new("Frame")
+    Label.Container.Name = Text
+    Label.Container.Size = UDim2.new(1, 0, 0, 25)
+    Label.Container.BackgroundTransparency = 1
+    Label.Container.ZIndex = 3
+    Label.Container.Parent = Section.Content
+
+    -- Text
+    Label.Instance = Cache.new("TextLabel")
+    Label.Instance.Name = "Label"
+    Label.Instance.Size = UDim2.new(1, 0, 1, 0)
+    Label.Instance.BackgroundTransparency = 1
+    Label.Instance.Text = Text
+    Label.Instance.TextColor3 = self.CurrentTheme.TextSecondary
+    Label.Instance.TextSize = 12
+    Label.Instance.Font = Enum.Font.Gotham
+    Label.Instance.TextXAlignment = Alignment == "right" and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left
+    Label.Instance.TextYAlignment = Enum.TextYAlignment.Center
+    Label.Instance.TextWrapped = true
+    Label.Instance.ZIndex = 4
+    Label.Instance.Parent = Label.Container
+
+    -- Set method
+    function Label:Set(Text)
+        self.Text = Text
+        self.Instance.Text = Text
+    end
+
+    Cache.insert(Section.Elements, Label)
+
+    return Label
+end
+
+-- DIVIDER COMPONENT
+function MyCustomUI:CreateDivider(Section)
+    local Divider = {}
+
+    -- Container
+    Divider.Container = Cache.new("Frame")
+    Divider.Container.Name = "Divider"
+    Divider.Container.Size = UDim2.new(1, 0, 0, 1)
+    Divider.Container.BackgroundColor3 = self.CurrentTheme.Border
+    Divider.Container.BackgroundTransparency = 0
+    Divider.Container.BorderSizePixel = 0
+    Divider.Container.ZIndex = 3
+    Divider.Container.Parent = Section.Content
+
+    return Divider
+end
+
+-- ============================================
+-- PART 8: NOTIFICATION SYSTEM
+-- ============================================
+
+function MyCustomUI:Notify(Data)
+    local Text = Data.Text or "Notification"
+    local Duration = Data.Duration or 3
+
+    -- Create notification holder if not exists
+    if not self.NotifHolder then
+        self.NotifHolder = Cache.new("Frame")
+        self.NotifHolder.Name = "NotificationHolder"
+        self.NotifHolder.Size = UDim2.new(0, 320, 1, 0)
+        self.NotifHolder.Position = UDim2.new(1, -330, 0, 20)
+        self.NotifHolder.BackgroundTransparency = 1
+        self.NotifHolder.ZIndex = 100
+        self.NotifHolder.Parent = Services.CoreGui
+
+        local HolderLayout = Cache.new("UIListLayout")
+        HolderLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        HolderLayout.Padding = UDim.new(0, 10)
+        HolderLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+        HolderLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+        HolderLayout.Parent = self.NotifHolder
+    end
+
+    -- Create notification
+    local Notification = Cache.new("Frame")
+    Notification.Name = "Notification"
+    Notification.Size = UDim2.new(1, 0, 0, 50)
+    Notification.BackgroundColor3 = self.CurrentTheme.Background
+    Notification.BorderSizePixel = 0
+    Notification.ZIndex = 101
+    Notification.BackgroundTransparency = 1
+    Notification.TextTransparency = 1
+    Notification.Parent = self.NotifHolder
+
+    self:AddCorner(Notification, self.CurrentTheme.CornerRadius)
+    self:AddStroke(Notification, self.CurrentTheme.Border, 1)
+
+    -- Notification text
+    local NotifText = Cache.new("TextLabel")
+    NotifText.Name = "Text"
+    NotifText.Size = UDim2.new(1, -20, 1, 0)
+    NotifText.Position = UDim2.new(0, 10, 0, 0)
+    NotifText.BackgroundTransparency = 1
+    NotifText.Text = Text
+    NotifText.TextColor3 = self.CurrentTheme.Text
+    NotifText.TextSize = 13
+    NotifText.Font = Enum.Font.Gotham
+    NotifText.TextWrapped = true
+    NotifText.TextXAlignment = Enum.TextXAlignment.Left
+    NotifText.ZIndex = 102
+    NotifText.Parent = Notification
+
+    -- Animate in
+    Notification.Position = UDim2.new(1, 20, 0, 0)
+    self:Tween(Notification, {
+        Position = UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 0,
+        TextTransparency = 0
+    }, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+    -- Auto destroy
+    task.delay(Duration, function()
+        self:Tween(Notification, {
+            Position = UDim2.new(1, 20, 0, 0),
+            BackgroundTransparency = 1,
+            TextTransparency = 1
+        }, 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In, function()
+            Notification:Destroy()
+        end)
+    end)
+
+    return Notification
+end
+
+-- ============================================
+-- PART 9: CONFIGURATION SYSTEM
+-- ============================================
+
+function MyCustomUI:SaveConfig(Name)
+    local Config = {}
+
+    for Flag, Value in pairs(self.Flags) do
+        Config[Flag] = Value
+    end
+
+    local FilePath = self.Config.ConfigFolder .. "/" .. Name .. ".json"
+
+    local Success, Error = pcall(function()
+        writefile(FilePath, Services.HttpService:JSONEncode(Config))
+    end)
+
+    if Success then
+        self:Notify({Text = "Config saved: " .. Name, Duration = 2})
+    else
+        self:Notify({Text = "Failed to save config", Duration = 2})
+    end
+
+    return Success
+end
+
+function MyCustomUI:LoadConfig(Name)
+    local FilePath = self.Config.ConfigFolder .. "/" .. Name .. ".json"
+
+    if not isfile(FilePath) then
+        self:Notify({Text = "Config not found: " .. Name, Duration = 2})
+        return false
+    end
+
+    local Success, Data = pcall(function()
+        return Services.HttpService:JSONDecode(readfile(FilePath))
+    end)
+
+    if Success and Data then
+        for Flag, Value in pairs(Data) do
+            self.Flags[Flag] = Value
+            -- Update UI elements here if needed
+        end
+
+        self:Notify({Text = "Config loaded: " .. Name, Duration = 2})
+        return true
+    end
+
+    self:Notify({Text = "Failed to load config", Duration = 2})
+    return false
+end
+
+function MyCustomUI:GetConfigs()
+    local Configs = {}
+
+    if listfiles and listfiles(self.Config.ConfigFolder) then
+        for _, File in ipairs(listfiles(self.Config.ConfigFolder)) do
+            if File:match("%.json$") then
+                local ConfigName = File:match("([^/]+)%.json$")
+                Cache.insert(Configs, ConfigName)
+            end
+        end
+    end
+
+    return Configs
+end
+
+-- ============================================
+-- PART 10: CLEANUP SYSTEM
+-- ============================================
+
+function MyCustomUI:Unload()
+    -- Disconnect all tracked connections
+    for _, Connection in ipairs(self.Connections) do
+        if Connection.Connected then
+            Connection:Disconnect()
+        end
+    end
+
+    -- Destroy all windows
+    for _, Window in ipairs(self.Windows) do
+        if Window.Instance and Window.Instance.Parent then
+            Window.Instance:Destroy()
+        end
+    end
+
+    -- Destroy notification holder
+    if self.NotifHolder and self.NotifHolder.Parent then
+        self.NotifHolder:Destroy()
+    end
+
+    -- Clear all tables
+    self.Windows = {}
+    self.Pages = {}
+    self.Flags = {}
+    self.Connections = {}
+end
+
+-- ============================================
+-- PART 11: CHAINABLE API
+-- ============================================
+
+-- Make components chainable
+local ComponentMT = {}
+
+ComponentMT.__index = ComponentMT
+
+function ComponentMT:Set(Value)
+    -- Override in individual components
+    return self
+end
+
+function ComponentMT:Destroy()
+    if self.Container then
+        self.Container:Destroy()
+    elseif self.Instance then
+        self.Instance:Destroy()
+    end
+    return nil
+end
+
+-- Add chainable methods to Section
+local OriginalSection = nil -- Will be set in Window:Page
+
+-- ============================================
+-- PART 12: EXAMPLE USAGE
+-- ============================================
+
+--[[
+
+EXAMPLE USAGE:
+
+-- Create the library
+local UI = MyCustomUI
+
+-- Create a window
+local Window = UI:Window({
+    Name = "My Awesome Script",
+    Version = "1.0.0",
+    Size = UDim2.new(0, 550, 0, 450),
+    Theme = "Default"
+})
+
+-- Create pages
+local CombatPage = Window:Page({Name = "Combat", Icon = "⚔️"})
+local VisualsPage = Window:Page({Name = "Visuals", Icon = "👁️"})
+local SettingsPage = Window:Page({Name = "Settings", Icon = "⚙️"})
+
+-- Combat Page
+local AimingSection = CombatPage:Section({Name = "Aiming", Side = "left"})
+local WeaponSection = CombatPage:Section({Name = "Weapons", Side = "right"})
+
+-- Add toggles
+AimingSection:Toggle({
+    Name = "Enable Aimbot",
+    Default = false,
+    Flag = "aimbot_enabled",
+    Callback = function(Value)
+        print("Aimbot:", Value)
+    end
+})
+
+AimingSection:Slider({
+    Name = "Aimbot FOV",
+    Min = 0,
+    Max = 360,
+    Default = 90,
+    Suffix = "°",
+    Decimals = 0,
+    Flag = "aimbot_fov",
+    Callback = function(Value)
+        print("FOV:", Value)
+    end
+})
+
+-- Add button
+WeaponSection:Button({
+    Name = "Test Feature",
+    Callback = function()
+        UI:Notify({Text = "Feature test successful!", Duration = 3})
+    end
+})
+
+-- Add label
+WeaponSection:Label({
+    Text = "This is an informational label",
+    Alignment = "left"
+})
+
+-- Add divider
+WeaponSection:Divider()
+
+-- Settings Page
+local ConfigSection = SettingsPage:Section({Name = "Configuration"})
+
+ConfigSection:Button({
+    Name = "Save Config",
+    Callback = function()
+        UI:SaveConfig("MyConfig")
+    end
+})
+
+ConfigSection:Button({
+    Name = "Load Config",
+    Callback = function()
+        UI:LoadConfig("MyConfig")
+    end
+})
+
+]]
+
+-- Export the library
+getgenv()[LIBRARY_NAME] = MyCustomUI
+
+return MyCustomUI
