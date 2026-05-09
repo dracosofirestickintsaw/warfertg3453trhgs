@@ -1,301 +1,334 @@
-local NeptuneLib = {} do
+if getgenv().Neptune then getgenv().Neptune:Unload() end
 
-	local Accent       = Color3.fromRGB(164, 139, 242)
-	local DarkBg       = Color3.fromRGB(20, 20, 20)
-	local MainBg       = Color3.fromRGB(30, 30, 30)
-	local TopbarBg     = Color3.fromRGB(15, 15, 15)
-	local InactiveText = Color3.fromRGB(115, 115, 115)
-	local WhiteText    = Color3.new(1, 1, 1)
-	local SourceSans   = Font.new("rbxasset://fonts/families/SourceSansPro.json")
+local Neptune
+do
 
-	function NeptuneLib:CreateWindow(title)
-		local Window     = {}
-		local subpages   = {}
-		local currentSubPage = nil
+local Players         = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService      = game:GetService("RunService")
+local TweenService    = game:GetService("TweenService")
+local CoreGui         = cloneref and cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")
+gethui = gethui or function() return CoreGui end
+local LocalPlayer     = Players.LocalPlayer
 
-		local gui = (gethui and gethui())
-			or (cloneref and cloneref(game:GetService("CoreGui")))
-			or game:GetService("CoreGui")
+local FromRGB         = Color3.fromRGB
+local UDim2New        = UDim2.new
+local UDimNew         = UDim.new
+local Vector2New      = Vector2.new
+local InstanceNew     = Instance.new
+local TableInsert     = table.insert
 
-		local ScreenGui = Instance.new("ScreenGui")
-		ScreenGui.Name = "NeptuneUI"
-		ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		ScreenGui.Parent = gui
+Neptune = {
+    Connections  = {},
+    Threads      = {},
+    Pages        = {},
+    SubPages     = {},
+    Accent       = FromRGB(164, 139, 242),
+    TextActive   = FromRGB(164, 139, 242),
+    TextInactive = FromRGB(115, 115, 115),
+    Gui          = nil,
+    Window       = nil,
+}
+Neptune.__index = Neptune
 
-		local TopBarFrame = Instance.new("Frame")
-		TopBarFrame.BackgroundColor3 = TopbarBg
-		TopBarFrame.ClipsDescendants = true
-		TopBarFrame.Position = UDim2.fromScale(0.312211, 0.226986)
-		TopBarFrame.Size = UDim2.fromOffset(579, 57)
-		Instance.new("UICorner", TopBarFrame).CornerRadius = UDim.new(0, 5)
+Neptune.Connect = function(self, Event, Callback)
+    local Conn = Event:Connect(Callback)
+    TableInsert(self.Connections, Conn)
+    return Conn
+end
 
-		local TitleBox = Instance.new("TextBox")
-		TitleBox.BackgroundTransparency = 1
-		TitleBox.CursorPosition = -1
-		TitleBox.FontFace = SourceSans
-		TitleBox.Position = UDim2.fromOffset(15, 2)
-		TitleBox.Size = UDim2.fromOffset(200, 50)
-		TitleBox.Text = title
-		TitleBox.TextColor3 = WhiteText
-		TitleBox.TextSize = 23
-		TitleBox.TextXAlignment = Enum.TextXAlignment.Left
-		TitleBox.Parent = TopBarFrame
+Neptune.Unload = function(self)
+    for _, C in self.Connections do C:Disconnect() end
+    for _, T in self.Threads    do coroutine.close(T) end
+    if self.Gui then self.Gui:Destroy() end
+    Neptune = nil
+    getgenv().Neptune = nil
+end
 
-		local TopBarBottomLine = Instance.new("Frame")
-		TopBarBottomLine.BackgroundColor3 = TopbarBg
-		TopBarBottomLine.BorderColor3 = Color3.new()
-		TopBarBottomLine.BorderSizePixel = 0
-		TopBarBottomLine.Position = UDim2.new(0.312, -180, 0.299, 35)
-		TopBarBottomLine.Size = UDim2.fromOffset(579, 5)
-		TopBarBottomLine.Parent = TopBarFrame
+Neptune.Window = function(self, Data)
+    Data = Data or {}
+    local Window = {
+        Title         = Data.Title  or Data.title  or "neptune",
+        ActivePage    = nil,
+        ActiveSubPage = nil,
+        Pages         = {},
+        SubPages      = {},
+        Tabs          = {},
+        SubTabs       = {},
+    }
 
-		local SubSelectedFrame = Instance.new("Frame")
-		SubSelectedFrame.BackgroundColor3 = Accent
-		SubSelectedFrame.Position = UDim2.fromOffset(297, 53)
-		SubSelectedFrame.Size = UDim2.fromOffset(35, 4)
-		Instance.new("UICorner", SubSelectedFrame).CornerRadius = UDim.new(0.1, 1)
-		SubSelectedFrame.Parent = TopBarFrame
+    local ScreenGui = InstanceNew("ScreenGui")
+    ScreenGui.Name          = "Neptune"
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.ResetOnSpawn  = false
+    ScreenGui.Parent        = gethui()
+    Neptune.Gui = ScreenGui
 
-		TopBarFrame.Parent = ScreenGui
+    local TopBar = InstanceNew("Frame")
+    TopBar.Name              = "TopBar"
+    TopBar.BackgroundColor3  = FromRGB(15, 15, 15)
+    TopBar.ClipsDescendants  = true
+    TopBar.Size              = UDim2New(0, 579, 0, 57)
+    TopBar.Position          = UDim2New(0.5, -289, 0.5, -217)
+    do
+        local c = InstanceNew("UICorner")
+        c.CornerRadius = UDimNew(0, 5)
+        c.Parent = TopBar
+    end
+    TopBar.Parent = ScreenGui
+    Window.TopBar = TopBar
 
-		local MainFrame = Instance.new("Frame")
-		MainFrame.BackgroundColor3 = MainBg
-		MainFrame.Position = UDim2.fromScale(0.312211, 0.298865)
-		MainFrame.Size = UDim2.fromOffset(579, 379)
-		Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 5)
+    local TitleLabel = InstanceNew("TextBox")
+    TitleLabel.Name               = "Title"
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.CursorPosition     = -1
+    TitleLabel.Editable           = false
+    TitleLabel.FontFace           = Font.new("rbxasset://fonts/families/SourceSansPro.json")
+    TitleLabel.Position           = UDim2New(0, 15, 0, 2)
+    TitleLabel.Size               = UDim2New(0, 200, 0, 50)
+    TitleLabel.Text               = Window.Title
+    TitleLabel.TextColor3         = FromRGB(255, 255, 255)
+    TitleLabel.TextSize           = 23
+    TitleLabel.TextXAlignment     = Enum.TextXAlignment.Left
+    TitleLabel.Parent             = TopBar
 
-		local MainTopBarLine = Instance.new("Frame")
-		MainTopBarLine.BackgroundColor3 = MainBg
-		MainTopBarLine.BorderColor3 = Color3.new()
-		MainTopBarLine.BorderSizePixel = 0
-		MainTopBarLine.Position = UDim2.new(0.312, -80, 0.299, -113)
-		MainTopBarLine.Size = UDim2.fromOffset(479, 5)
-		MainTopBarLine.Parent = MainFrame
+    local TopBarLine = InstanceNew("Frame")
+    TopBarLine.Name             = "TopBarLine"
+    TopBarLine.BackgroundColor3 = FromRGB(15, 15, 15)
+    TopBarLine.BorderSizePixel  = 0
+    TopBarLine.Position         = UDim2New(0, 0, 0, 53)
+    TopBarLine.Size             = UDim2New(0, 579, 0, 4)
+    TopBarLine.Parent           = TopBar
 
-		local TabsHolder = Instance.new("Frame")
-		TabsHolder.BackgroundColor3 = DarkBg
-		TabsHolder.ClipsDescendants = true
-		TabsHolder.Size = UDim2.fromOffset(94, 379)
-		Instance.new("UICorner", TabsHolder).CornerRadius = UDim.new(0, 5)
+    local SubPageHolder = InstanceNew("Frame")
+    SubPageHolder.Name             = "SubPageHolder"
+    SubPageHolder.BackgroundTransparency = 1
+    SubPageHolder.Position         = UDim2New(0, 297, 0, 0)
+    SubPageHolder.Size             = UDim2New(0, 282, 0, 57)
+    SubPageHolder.Parent           = TopBar
+    Window.SubPageHolder = SubPageHolder
 
-		local TabLineLeft = Instance.new("Frame")
-		TabLineLeft.BackgroundColor3 = DarkBg
-		TabLineLeft.BorderColor3 = Color3.new()
-		TabLineLeft.BorderSizePixel = 0
-		TabLineLeft.Position = UDim2.fromOffset(-2, 0)
-		TabLineLeft.Rotation = 90
-		TabLineLeft.Size = UDim2.fromOffset(10, 5)
-		TabLineLeft.Parent = TabsHolder
+    local SubSelectedFrame = InstanceNew("Frame")
+    SubSelectedFrame.Name             = "SubSelectedFrame"
+    SubSelectedFrame.BackgroundColor3 = FromRGB(164, 139, 242)
+    SubSelectedFrame.Size             = UDim2New(0, 35, 0, 4)
+    SubSelectedFrame.Visible          = false
+    do
+        local c = InstanceNew("UICorner")
+        c.CornerRadius = UDimNew(0.1, 1)
+        c.Parent = SubSelectedFrame
+    end
+    SubSelectedFrame.Parent = TopBar
+    Window.SubSelectedFrame = SubSelectedFrame
 
-		local TabLineRight = Instance.new("Frame")
-		TabLineRight.BackgroundColor3 = DarkBg
-		TabLineRight.BorderColor3 = Color3.new()
-		TabLineRight.BorderSizePixel = 0
-		TabLineRight.Position = UDim2.fromOffset(87, 0)
-		TabLineRight.Size = UDim2.fromOffset(10, 379)
-		TabLineRight.Parent = TabsHolder
+    local MainFrame = InstanceNew("Frame")
+    MainFrame.Name             = "MainFrame"
+    MainFrame.BackgroundColor3 = FromRGB(30, 30, 30)
+    MainFrame.Size             = UDim2New(0, 579, 0, 379)
+    MainFrame.Position         = UDim2New(0.5, -289, 0.5, -160)
+    do
+        local c = InstanceNew("UICorner")
+        c.CornerRadius = UDimNew(0, 5)
+        c.Parent = MainFrame
+    end
+    MainFrame.Parent = ScreenGui
+    Window.MainFrame = MainFrame
 
-		local TabSelectedFrame = Instance.new("Frame")
-		TabSelectedFrame.BackgroundColor3 = Accent
-		TabSelectedFrame.Position = UDim2.new(0.894, 6, 0, 15)
-		TabSelectedFrame.Size = UDim2.fromOffset(5, 17)
-		Instance.new("UICorner", TabSelectedFrame).CornerRadius = UDim.new(0.1, 1)
-		TabSelectedFrame.Parent = TabsHolder
+    local TabsHolder = InstanceNew("Frame")
+    TabsHolder.Name              = "TabsHolder"
+    TabsHolder.BackgroundColor3  = FromRGB(20, 20, 20)
+    TabsHolder.ClipsDescendants  = true
+    TabsHolder.Size              = UDim2New(0, 94, 0, 379)
+    do
+        local c = InstanceNew("UICorner")
+        c.CornerRadius = UDimNew(0, 5)
+        c.Parent = TabsHolder
+    end
+    local TabLineL = InstanceNew("Frame")
+    TabLineL.Name             = "TabLine"
+    TabLineL.BackgroundColor3 = FromRGB(20, 20, 20)
+    TabLineL.BorderSizePixel  = 0
+    TabLineL.Position         = UDim2New(0, -2, 0, 0)
+    TabLineL.Rotation         = 90
+    TabLineL.Size             = UDim2New(0, 10, 0, 5)
+    TabLineL.Parent           = TabsHolder
+    local TabLineR = InstanceNew("Frame")
+    TabLineR.Name             = "TabLine"
+    TabLineR.BackgroundColor3 = FromRGB(20, 20, 20)
+    TabLineR.BorderSizePixel  = 0
+    TabLineR.Position         = UDim2New(0, 87, 0, 0)
+    TabLineR.Size             = UDim2New(0, 10, 0, 379)
+    TabLineR.Parent           = TabsHolder
 
-		TabsHolder.Parent = MainFrame
+    local TabSelectedFrame = InstanceNew("Frame")
+    TabSelectedFrame.Name             = "TabSelectedFrame"
+    TabSelectedFrame.BackgroundColor3 = FromRGB(164, 139, 242)
+    TabSelectedFrame.Size             = UDim2New(0, 5, 0, 17)
+    TabSelectedFrame.Visible          = false
+    do
+        local c = InstanceNew("UICorner")
+        c.CornerRadius = UDimNew(0.1, 1)
+        c.Parent = TabSelectedFrame
+    end
+    TabSelectedFrame.Parent  = TabsHolder
+    Window.TabSelectedFrame  = TabSelectedFrame
+    TabsHolder.Parent         = MainFrame
+    Window.TabsHolder         = TabsHolder
 
-		local ContentHolder = Instance.new("Frame")
-		ContentHolder.BackgroundColor3 = DarkBg
-		ContentHolder.Position = UDim2.fromOffset(105, 9)
-		ContentHolder.Size = UDim2.fromOffset(462, 358)
-		Instance.new("UICorner", ContentHolder).CornerRadius = UDim.new(0, 5)
+    local ContentHolder = InstanceNew("Frame")
+    ContentHolder.Name             = "ContentHolder"
+    ContentHolder.BackgroundColor3 = FromRGB(20, 20, 20)
+    ContentHolder.Position         = UDim2New(0, 105, 0, 9)
+    ContentHolder.Size             = UDim2New(0, 462, 0, 358)
+    do
+        local c = InstanceNew("UICorner")
+        c.CornerRadius = UDimNew(0, 5)
+        c.Parent = ContentHolder
+    end
+    ContentHolder.Parent  = MainFrame
+    Window.ContentHolder  = ContentHolder
 
-		local ContentTopBar = Instance.new("Frame")
-		ContentTopBar.BackgroundColor3 = TopbarBg
-		ContentTopBar.Size = UDim2.fromOffset(462, 43)
-		Instance.new("UICorner", ContentTopBar).CornerRadius = UDim.new(0, 5)
+    local SectionTopBar = InstanceNew("Frame")
+    SectionTopBar.Name             = "SectionTopBar"
+    SectionTopBar.BackgroundColor3 = FromRGB(15, 15, 15)
+    SectionTopBar.Size             = UDim2New(0, 462, 0, 43)
+    do
+        local c = InstanceNew("UICorner")
+        c.CornerRadius = UDimNew(0, 5)
+        c.Parent = SectionTopBar
+    end
+    local SectionNameLabel = InstanceNew("TextLabel")
+    SectionNameLabel.Name               = "SectionName"
+    SectionNameLabel.BackgroundTransparency = 1
+    SectionNameLabel.FontFace           = Font.new("rbxasset://fonts/families/SourceSansPro.json")
+    SectionNameLabel.Position           = UDim2New(0, 13, 0, 5)
+    SectionNameLabel.Size               = UDim2New(0, 200, 0, 33)
+    SectionNameLabel.Text               = ""
+    SectionNameLabel.TextColor3         = FromRGB(255, 255, 255)
+    SectionNameLabel.TextSize           = 23
+    SectionNameLabel.TextXAlignment     = Enum.TextXAlignment.Left
+    SectionNameLabel.Parent             = SectionTopBar
+    SectionTopBar.Parent               = ContentHolder
+    Window.SectionTopBar               = SectionTopBar
+    Window.SectionNameLabel            = SectionNameLabel
+    local SectionTopBarLine = InstanceNew("Frame")
+    SectionTopBarLine.Name             = "SectionTopBarLine"
+    SectionTopBarLine.BackgroundColor3 = FromRGB(15, 15, 15)
+    SectionTopBarLine.BorderSizePixel  = 0
+    SectionTopBarLine.Position         = UDim2New(0, 0, 0, 40)
+    SectionTopBarLine.Size             = UDim2New(0, 462, 0, 5)
+    SectionTopBarLine.Parent           = ContentHolder
 
-		local SectionNameLabel = Instance.new("TextLabel")
-		SectionNameLabel.BackgroundTransparency = 1
-		SectionNameLabel.FontFace = SourceSans
-		SectionNameLabel.Position = UDim2.fromOffset(13, 5)
-		SectionNameLabel.Size = UDim2.fromOffset(200, 33)
-		SectionNameLabel.Text = ""
-		SectionNameLabel.TextColor3 = WhiteText
-		SectionNameLabel.TextSize = 23
-		SectionNameLabel.TextXAlignment = Enum.TextXAlignment.Left
-		SectionNameLabel.Parent = ContentTopBar
+    local TabYOffset = 5
 
-		ContentTopBar.Parent = ContentHolder
+    function Window:Tab(Data)
+        Data = Data or {}
+        local Tab = {
+            Name     = Data.Name or Data.name or "Tab",
+            SubPages = {},
+            Window   = Window,
+        }
 
-		local ContentSeparator = Instance.new("Frame")
-		ContentSeparator.BackgroundColor3 = TopbarBg
-		ContentSeparator.BorderColor3 = Color3.new()
-		ContentSeparator.BorderSizePixel = 0
-		ContentSeparator.Position = UDim2.fromOffset(0, 40)
-		ContentSeparator.Size = UDim2.fromOffset(462, 5)
-		ContentSeparator.Parent = ContentHolder
+        local TabText = InstanceNew("TextBox")
+        TabText.BackgroundTransparency = 1
+        TabText.CursorPosition         = -1
+        TabText.Editable               = false
+        TabText.FontFace               = Font.new("rbxasset://fonts/families/SourceSansPro.json")
+        TabText.Position               = UDim2New(0, 15, 0, TabYOffset)
+        TabText.Size                   = UDim2New(0, 66, 0, 32)
+        TabText.Text                   = Tab.Name
+        TabText.TextColor3             = Neptune.TextInactive
+        TabText.TextSize               = 18
+        TabText.TextXAlignment         = Enum.TextXAlignment.Left
+        TabText.Parent                 = TabsHolder
+        Tab.TabText                    = TabText
+        Tab.YOffset                    = TabYOffset
+        TabYOffset                     += 30
 
-		ContentHolder.Parent = MainFrame
-		MainFrame.Parent = ScreenGui
+        TableInsert(Window.Tabs, Tab)
 
-		local nextSubPageX = 297
+        local function SelectTab()
+            if Window.ActiveTab == Tab then return end
+            if Window.ActiveTab then
+                Window.ActiveTab.TabText.TextColor3 = Neptune.TextInactive
+            end
+            Window.ActiveTab      = Tab
+            TabText.TextColor3    = Neptune.TextActive
+            TabSelectedFrame.Position = UDim2New(0, 83, 0, Tab.YOffset + 8)
+            TabSelectedFrame.Visible  = true
+            if Tab.SubPages[1] then
+                Tab.SubPages[1]:Select()
+            end
+        end
 
-		local function selectSubPage(subPage)
-			for _, sp in subpages do
-				sp._label.TextColor3 = InactiveText
-				for _, t in sp._tabs do
-					t._label.Visible = false
-				end
-			end
-			subPage._label.TextColor3 = Accent
-			currentSubPage = subPage
-			for _, t in subPage._tabs do
-				t._label.Visible = true
-			end
-			task.defer(function()
-				local tw = subPage._label.TextBounds.X
-				SubSelectedFrame.Position = UDim2.fromOffset(subPage._xPos, 53)
-				SubSelectedFrame.Size = UDim2.fromOffset(math.max(tw, 20), 4)
-			end)
-			if subPage._currentTab then
-				subPage._selectTab(subPage._currentTab)
-			elseif #subPage._tabs > 0 then
-				subPage._selectTab(subPage._tabs[1])
-			end
-		end
+        TabText.Focused:Connect(function() TabText:ReleaseFocus() SelectTab() end)
+        Neptune:Connect(TabText.InputBegan, function(inp)
+            if inp.UserInputType == Enum.UserInputType.MouseButton1 then SelectTab() end
+        end)
 
-		function Window:AddSubPage(name)
-			local xPos = nextSubPageX
-			nextSubPageX = nextSubPageX + 53
+        if #Window.Tabs == 1 then SelectTab() end
 
-			local SubPageBox = Instance.new("TextBox")
-			SubPageBox.BackgroundTransparency = 1
-			SubPageBox.CursorPosition = -1
-			SubPageBox.FontFace = SourceSans
-			SubPageBox.Position = UDim2.fromOffset(xPos, 9)
-			SubPageBox.Size = UDim2.fromOffset(60, 37)
-			SubPageBox.Text = name
-			SubPageBox.TextColor3 = InactiveText
-			SubPageBox.TextSize = 20
-			SubPageBox.Parent = TopBarFrame
+        function Tab:SubPage(SPData)
+            SPData = SPData or {}
+            local SubPage = {
+                Name   = SPData.Name or SPData.name or "SubPage",
+                Tab    = Tab,
+                Window = Window,
+            }
 
-			local SubPage = {}
-			SubPage._label = SubPageBox
-			SubPage._xPos = xPos
-			SubPage._tabs = {}
-			SubPage._currentTab = nil
+            local SubPageCount = #Tab.SubPages
+            local XPositions = {297, 350, 405, 455, 504}
+            local XPos = XPositions[SubPageCount + 1] or (297 + SubPageCount * 53)
 
-			local SubPageBtn = Instance.new("TextButton")
-			SubPageBtn.BackgroundTransparency = 1
-			SubPageBtn.Size = UDim2.new(1, 0, 1, 0)
-			SubPageBtn.Text = ""
-			SubPageBtn.ZIndex = 10
-			SubPageBtn.Parent = SubPageBox
-			SubPageBtn.MouseButton1Click:Connect(function()
-				selectSubPage(SubPage)
-			end)
+            local SPText = InstanceNew("TextBox")
+            SPText.BackgroundTransparency = 1
+            SPText.CursorPosition         = -1
+            SPText.Editable               = false
+            SPText.FontFace               = Font.new("rbxasset://fonts/families/SourceSansPro.json")
+            SPText.Position               = UDim2New(0, XPos, 0, 9)
+            SPText.Size                   = UDim2New(0, 60, 0, 37)
+            SPText.Text                   = SubPage.Name
+            SPText.TextColor3             = Neptune.TextInactive
+            SPText.TextSize               = 20
+            SPText.Visible                = false
+            SPText.Parent                 = SubPageHolder
+            SubPage.SPText                = SPText
+            SubPage.XPos                  = XPos
 
-			table.insert(subpages, SubPage)
-			if #subpages == 1 then
-				selectSubPage(SubPage)
-			end
+            TableInsert(Tab.SubPages, SubPage)
 
-			local function selectTab(tab)
-				for _, t in SubPage._tabs do
-					t._label.TextColor3 = InactiveText
-				end
-				tab._label.TextColor3 = Accent
-				SubPage._currentTab = tab
-				TabSelectedFrame.Position = UDim2.new(0.894, 6, 0, tab._yPos + 10)
-				if tab._sections[1] then
-					SectionNameLabel.Text = tab._sections[1]._name
-				end
-			end
-			SubPage._selectTab = selectTab
+            function SubPage:Select()
+                for _, sp in Tab.SubPages do
+                    sp.SPText.TextColor3 = Neptune.TextInactive
+                    sp.SPText.Visible    = false
+                end
+                for _, sp in Tab.SubPages do
+                    sp.SPText.Visible = true
+                end
+                Window.ActiveSubPage         = SubPage
+                SPText.TextColor3            = Neptune.TextActive
+                Window.SectionNameLabel.Text = SubPage.Name
+                Window.SubSelectedFrame.Position = UDim2New(0, SubPage.XPos - 297, 0, 53)
+                Window.SubSelectedFrame.Visible  = true
+            end
 
-			function SubPage:AddTab(name)
-				local tabIndex = #self._tabs + 1
-				local yPos = 5 + (tabIndex - 1) * 30
+            SPText.Focused:Connect(function() SPText:ReleaseFocus() SubPage:Select() end)
+            Neptune:Connect(SPText.InputBegan, function(inp)
+                if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                    SubPage:Select()
+                end
+            end)
 
-				local TabBox = Instance.new("TextBox")
-				TabBox.BackgroundTransparency = 1
-				TabBox.CursorPosition = -1
-				TabBox.FontFace = SourceSans
-				TabBox.Position = UDim2.fromOffset(15, yPos)
-				TabBox.Size = UDim2.fromOffset(66, 32)
-				TabBox.Text = name
-				TabBox.TextColor3 = InactiveText
-				TabBox.TextSize = 18
-				TabBox.TextXAlignment = Enum.TextXAlignment.Left
-				TabBox.Visible = currentSubPage == self
-				TabBox.Parent = TabsHolder
+            return SubPage
+        end
 
-				local Tab = {}
-				Tab._label = TabBox
-				Tab._yPos = yPos
-				Tab._sections = {}
+        return Tab
+    end
 
-				local TabBtn = Instance.new("TextButton")
-				TabBtn.BackgroundTransparency = 1
-				TabBtn.Size = UDim2.new(1, 0, 1, 0)
-				TabBtn.Text = ""
-				TabBtn.ZIndex = 10
-				TabBtn.Parent = TabBox
-				TabBtn.MouseButton1Click:Connect(function()
-					selectTab(Tab)
-				end)
-
-				table.insert(self._tabs, Tab)
-				if #self._tabs == 1 and currentSubPage == self then
-					selectTab(Tab)
-				end
-
-				function Tab:AddSection(sectionName)
-					local Section = {}
-					Section._name = sectionName
-					table.insert(self._sections, Section)
-					if #self._sections == 1
-						and currentSubPage == SubPage
-						and SubPage._currentTab == self
-					then
-						SectionNameLabel.Text = sectionName
-					end
-					return Section
-				end
-
-				return Tab
-			end
-
-			return SubPage
-		end
-
-		return Window
-	end
+    return Window
+end
 
 end
 
-return NeptuneLib
-
-
--- Example usage:
-
---[[
-
-local Library = loadstring(game:HttpGet(""))()
-
-local Window = Library:CreateWindow("neptune")
-
-local LegitPage    = Window:AddSubPage("legit")
-local VisualsPage  = Window:AddSubPage("visuals")
-local MiscPage     = Window:AddSubPage("misc")
-local SkinsPage    = Window:AddSubPage("skins")
-local SettingsPage = Window:AddSubPage("settings")
-
-local EntitiesTab   = LegitPage:AddTab("entities")
-local BacktrackTab  = LegitPage:AddTab("backtrack")
-local TriggerbotTab = LegitPage:AddTab("triggerbot")
-
-local AimbotSection = EntitiesTab:AddSection("aimbot")
-
---]]
+getgenv().Neptune = Neptune
+return Neptune
