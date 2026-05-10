@@ -1,0 +1,921 @@
+local Library = {}
+Library.__index = Library
+
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local ACCENT = Color3.fromRGB(164, 139, 242)
+local BACKGROUND = Color3.fromRGB(30, 30, 30)
+local SURFACE = Color3.fromRGB(20, 20, 20)
+local TOPBAR = Color3.fromRGB(15, 15, 15)
+local ELEMENT_BG = Color3.fromRGB(24, 24, 24)
+local SLIDER_BG = Color3.fromRGB(30, 30, 30)
+local TEXT_ACTIVE = Color3.fromRGB(255, 255, 255)
+local TEXT_INACTIVE = Color3.fromRGB(115, 115, 115)
+local TEXT_MUTED = Color3.fromRGB(127, 127, 127)
+local FONT = Font.new("rbxasset://fonts/families/SourceSansPro.json")
+
+local function Tween(instance, properties, duration, style, direction)
+	local info = TweenInfo.new(duration or 0.15, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out)
+	local t = TweenService:Create(instance, info, properties)
+	t:Play()
+	return t
+end
+
+local function MakeCorner(parent, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = radius or UDim.new(0, 5)
+	c.Parent = parent
+	return c
+end
+
+local function HoverEffect(frame, normal, hovered)
+	frame.MouseEnter:Connect(function()
+		Tween(frame, {BackgroundColor3 = hovered}, 0.1)
+	end)
+	frame.MouseLeave:Connect(function()
+		Tween(frame, {BackgroundColor3 = normal}, 0.1)
+	end)
+end
+
+local function lighten(color, amount)
+	local h, s, v = Color3.toHSV(color)
+	return Color3.fromHSV(h, s, math.min(1, v + (amount or 0.07)))
+end
+
+function Library.new(config)
+	local self = setmetatable({}, Library)
+
+	self.Title = config.Title or "neptune"
+	self.Tabs = {}
+	self.SubPages = {}
+	self.ActiveTab = nil
+	self.ActiveSubPage = nil
+
+	local ScreenGui = Instance.new("ScreenGui")
+	ScreenGui.Name = config.Title or "Library"
+	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	ScreenGui.ResetOnSpawn = false
+	if syn and syn.protect_gui then
+		syn.protect_gui(ScreenGui)
+		ScreenGui.Parent = game:GetService("CoreGui")
+	elseif gethui then
+		ScreenGui.Parent = gethui()
+	else
+		ScreenGui.Parent = game:GetService("CoreGui")
+	end
+	self.ScreenGui = ScreenGui
+
+	local TopBar = Instance.new("Frame")
+	TopBar.Name = "TopBar"
+	TopBar.BackgroundColor3 = TOPBAR
+	TopBar.ClipsDescendants = true
+	TopBar.Position = UDim2.fromScale(0.312211, 0.226986)
+	TopBar.Size = UDim2.fromOffset(579, 57)
+	MakeCorner(TopBar, UDim.new(0, 5))
+	TopBar.Parent = ScreenGui
+	self.TopBar = TopBar
+
+	local TitleLabel = Instance.new("TextLabel")
+	TitleLabel.Name = "Title"
+	TitleLabel.BackgroundTransparency = 1
+	TitleLabel.FontFace = FONT
+	TitleLabel.Position = UDim2.fromOffset(15, 2)
+	TitleLabel.Size = UDim2.fromOffset(200, 50)
+	TitleLabel.Text = self.Title
+	TitleLabel.TextColor3 = TEXT_ACTIVE
+	TitleLabel.TextSize = 23
+	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	TitleLabel.Parent = TopBar
+
+	local TopBarBottomLine = Instance.new("Frame")
+	TopBarBottomLine.Name = "TopBarLine"
+	TopBarBottomLine.BackgroundColor3 = TOPBAR
+	TopBarBottomLine.BorderSizePixel = 0
+	TopBarBottomLine.Position = UDim2.new(0, 0, 1, -5)
+	TopBarBottomLine.Size = UDim2.new(1, 0, 0, 5)
+	TopBarBottomLine.Parent = TopBar
+
+	local SubSelectedFrame = Instance.new("Frame")
+	SubSelectedFrame.Name = "SubSelectedFrame"
+	SubSelectedFrame.BackgroundColor3 = ACCENT
+	SubSelectedFrame.Size = UDim2.fromOffset(35, 4)
+	SubSelectedFrame.Position = UDim2.new(0, 0, 1, -4)
+	MakeCorner(SubSelectedFrame, UDim.new(0.1, 1))
+	SubSelectedFrame.Parent = TopBar
+	self.SubSelectedFrame = SubSelectedFrame
+	self.SubPageButtons = {}
+
+	local MainFrame = Instance.new("Frame")
+	MainFrame.Name = "MainFrame"
+	MainFrame.BackgroundColor3 = BACKGROUND
+	MainFrame.Position = UDim2.new(TopBar.Position.X.Scale, TopBar.Position.X.Offset, TopBar.Position.Y.Scale, TopBar.Position.Y.Offset + 57)
+	MainFrame.Size = UDim2.fromOffset(579, 379)
+	MakeCorner(MainFrame, UDim.new(0, 5))
+	MainFrame.Parent = ScreenGui
+	self.MainFrame = MainFrame
+
+	local TabsHolder = Instance.new("Frame")
+	TabsHolder.Name = "TabsHolder"
+	TabsHolder.BackgroundColor3 = SURFACE
+	TabsHolder.ClipsDescendants = true
+	TabsHolder.Size = UDim2.fromOffset(94, 379)
+	MakeCorner(TabsHolder, UDim.new(0, 5))
+	TabsHolder.Parent = MainFrame
+	self.TabsHolder = TabsHolder
+
+	local TabRightLine = Instance.new("Frame")
+	TabRightLine.Name = "TabLine"
+	TabRightLine.BackgroundColor3 = SURFACE
+	TabRightLine.BorderSizePixel = 0
+	TabRightLine.Position = UDim2.fromOffset(87, 0)
+	TabRightLine.Size = UDim2.fromOffset(10, 379)
+	TabRightLine.Parent = TabsHolder
+
+	local TabSelectedFrame = Instance.new("Frame")
+	TabSelectedFrame.Name = "TabSelectedFrame"
+	TabSelectedFrame.BackgroundColor3 = ACCENT
+	TabSelectedFrame.Position = UDim2.new(1, -7, 0, 15)
+	TabSelectedFrame.Size = UDim2.fromOffset(5, 17)
+	MakeCorner(TabSelectedFrame, UDim.new(0.1, 1))
+	TabSelectedFrame.Parent = TabsHolder
+	self.TabSelectedFrame = TabSelectedFrame
+
+	local TabListLayout = Instance.new("UIListLayout")
+	TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	TabListLayout.Padding = UDim.new(0, 0)
+	TabListLayout.Parent = TabsHolder
+
+	local ContentHolder = Instance.new("Frame")
+	ContentHolder.Name = "ContentHolder"
+	ContentHolder.BackgroundColor3 = SURFACE
+	ContentHolder.Position = UDim2.fromOffset(105, 9)
+	ContentHolder.Size = UDim2.fromOffset(462, 358)
+	MakeCorner(ContentHolder, UDim.new(0, 5))
+	ContentHolder.Parent = MainFrame
+	self.ContentHolder = ContentHolder
+
+	self:_InitDrag(TopBar, MainFrame, TopBar)
+
+	return self
+end
+
+function Library:_InitDrag(dragSource, mainFrame, topBar)
+	local dragging = false
+	local dragStart, startMainPos, startTopPos
+
+	dragSource.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+			dragStart = input.Position
+			startMainPos = mainFrame.Position
+			startTopPos = topBar.Position
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local delta = input.Position - dragStart
+			mainFrame.Position = UDim2.new(
+				startMainPos.X.Scale,
+				startMainPos.X.Offset + delta.X,
+				startMainPos.Y.Scale,
+				startMainPos.Y.Offset + delta.Y
+			)
+			topBar.Position = UDim2.new(
+				startTopPos.X.Scale,
+				startTopPos.X.Offset + delta.X,
+				startTopPos.Y.Scale,
+				startTopPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
+	end)
+end
+
+function Library:SubPage(config)
+	local name = config.Name or "SubPage"
+	local index = #self.SubPageButtons + 1
+
+	local xOffset = 297 - (index - 1) * 53
+	if index == 1 then xOffset = 297 end
+
+	local btn = Instance.new("TextLabel")
+	btn.Name = "SubPage_" .. name
+	btn.BackgroundTransparency = 1
+	btn.FontFace = FONT
+	btn.Position = UDim2.fromOffset(xOffset, 9)
+	btn.Size = UDim2.fromOffset(math.max(string.len(name) * 10, 42), 37)
+	btn.Text = name
+	btn.TextColor3 = TEXT_INACTIVE
+	btn.TextSize = 20
+	btn.Parent = self.TopBar
+
+	local subPage = {
+		Name = name,
+		Button = btn,
+		Tabs = {},
+		ActiveTab = nil,
+		TabButtons = {},
+		TabSelectedFrame = self.TabSelectedFrame,
+	}
+
+	table.insert(self.SubPageButtons, {btn = btn, subPage = subPage})
+
+	local function reposition()
+		local totalWidth = 0
+		local widths = {}
+		for i, v in ipairs(self.SubPageButtons) do
+			local w = math.max(string.len(v.subPage.Name) * 10 + 8, 42)
+			widths[i] = w
+			totalWidth = totalWidth + w
+		end
+		local startX = 579 - 15 - totalWidth
+		for i, v in ipairs(self.SubPageButtons) do
+			v.btn.Position = UDim2.fromOffset(startX, 9)
+			v.btn.Size = UDim2.fromOffset(widths[i], 37)
+			startX = startX + widths[i] + 8
+		end
+	end
+	reposition()
+
+	local function selectSubPage(sp, btnRef)
+		if self.ActiveSubPage then
+			for _, v in ipairs(self.SubPageButtons) do
+				v.btn.TextColor3 = TEXT_INACTIVE
+			end
+			for _, tab in ipairs(self.ActiveSubPage.Tabs) do
+				if tab.ContentFrame then
+					tab.ContentFrame.Visible = false
+				end
+				if tab.TabButton then
+					tab.TabButton.TextColor3 = TEXT_INACTIVE
+				end
+			end
+		end
+
+		self.ActiveSubPage = sp
+		btnRef.TextColor3 = ACCENT
+
+		Tween(self.SubSelectedFrame, {
+			Position = UDim2.new(0, btnRef.Position.X.Offset + btnRef.AbsoluteSize.X / 2 - 17, 1, -4),
+			Size = UDim2.fromOffset(btnRef.AbsoluteSize.X, 4)
+		}, 0.15)
+
+		if #sp.Tabs > 0 then
+			local firstTab = sp.Tabs[1]
+			self:_SelectTab(firstTab, sp)
+		end
+	end
+
+	btn.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			selectSubPage(subPage, btn)
+		end
+	end)
+	btn.MouseEnter:Connect(function()
+		if self.ActiveSubPage ~= subPage then
+			btn.TextColor3 = lighten(TEXT_INACTIVE, 0.1)
+		end
+	end)
+	btn.MouseLeave:Connect(function()
+		if self.ActiveSubPage ~= subPage then
+			btn.TextColor3 = TEXT_INACTIVE
+		end
+	end)
+
+	if #self.SubPageButtons == 1 then
+		task.defer(function()
+			selectSubPage(subPage, btn)
+		end)
+	end
+
+	local subPageObj = {}
+
+	function subPageObj:Tab(tabConfig)
+		return Library._AddTab(Library, tabConfig, subPage, self)
+	end
+
+	self.SubPages[name] = subPage
+	return subPageObj
+end
+
+function Library:_AddTab(config, subPage, subPageObj)
+	local name = config.Name or "Tab"
+	local tabIndex = #subPage.Tabs + 1
+
+	local tabBtn = Instance.new("TextLabel")
+	tabBtn.Name = "Tab_" .. name
+	tabBtn.BackgroundTransparency = 1
+	tabBtn.FontFace = FONT
+	tabBtn.Size = UDim2.fromOffset(94, 30)
+	tabBtn.Text = name
+	tabBtn.TextColor3 = TEXT_INACTIVE
+	tabBtn.TextSize = 18
+	tabBtn.TextXAlignment = Enum.TextXAlignment.Left
+	tabBtn.Selectable = false
+	tabBtn.LayoutOrder = tabIndex
+
+	local tabPadding = Instance.new("UIPadding")
+	tabPadding.PaddingLeft = UDim.new(0, 15)
+	tabPadding.Parent = tabBtn
+
+	tabBtn.Parent = self.TabsHolder
+
+	local contentFrame = Instance.new("ScrollingFrame")
+	contentFrame.Name = "Content_" .. name
+	contentFrame.BackgroundTransparency = 1
+	contentFrame.Position = UDim2.fromOffset(0, 48)
+	contentFrame.Size = UDim2.fromOffset(462, 310)
+	contentFrame.ScrollBarThickness = 3
+	contentFrame.ScrollBarImageColor3 = ACCENT
+	contentFrame.CanvasSize = UDim2.fromOffset(0, 0)
+	contentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	contentFrame.Visible = false
+	contentFrame.BorderSizePixel = 0
+	contentFrame.Parent = self.ContentHolder
+
+	local sectionTopBar = Instance.new("Frame")
+	sectionTopBar.Name = "TopBar"
+	sectionTopBar.BackgroundColor3 = TOPBAR
+	sectionTopBar.Size = UDim2.fromOffset(462, 43)
+	sectionTopBar.ZIndex = 2
+	MakeCorner(sectionTopBar, UDim.new(0, 5))
+	sectionTopBar.Parent = self.ContentHolder
+
+	local sectionTopBarLine = Instance.new("Frame")
+	sectionTopBarLine.BackgroundColor3 = TOPBAR
+	sectionTopBarLine.BorderSizePixel = 0
+	sectionTopBarLine.Position = UDim2.new(0, 0, 1, -5)
+	sectionTopBarLine.Size = UDim2.new(1, 0, 0, 5)
+	sectionTopBarLine.ZIndex = 2
+	sectionTopBarLine.Parent = sectionTopBar
+
+	local sectionNameLabel = Instance.new("TextLabel")
+	sectionNameLabel.Name = "SectionName"
+	sectionNameLabel.BackgroundTransparency = 1
+	sectionNameLabel.FontFace = FONT
+	sectionNameLabel.Position = UDim2.fromOffset(13, 5)
+	sectionNameLabel.Size = UDim2.fromOffset(200, 33)
+	sectionNameLabel.Text = name
+	sectionNameLabel.TextColor3 = TEXT_ACTIVE
+	sectionNameLabel.TextSize = 23
+	sectionNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	sectionNameLabel.ZIndex = 3
+	sectionNameLabel.Parent = sectionTopBar
+
+	local listLayout = Instance.new("UIListLayout")
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.Padding = UDim.new(0, 0)
+	listLayout.Parent = contentFrame
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 8)
+	padding.PaddingLeft = UDim.new(0, 13)
+	padding.PaddingRight = UDim.new(0, 13)
+	padding.Parent = contentFrame
+
+	local tab = {
+		Name = name,
+		TabButton = tabBtn,
+		ContentFrame = contentFrame,
+		SectionTopBar = sectionTopBar,
+		Sections = {},
+	}
+	table.insert(subPage.Tabs, tab)
+
+	tabBtn.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			self:_SelectTab(tab, subPage)
+		end
+	end)
+	tabBtn.MouseEnter:Connect(function()
+		if subPage.ActiveTab ~= tab then
+			tabBtn.TextColor3 = lighten(TEXT_INACTIVE, 0.1)
+		end
+	end)
+	tabBtn.MouseLeave:Connect(function()
+		if subPage.ActiveTab ~= tab then
+			tabBtn.TextColor3 = TEXT_INACTIVE
+		end
+	end)
+
+	local tabObj = {}
+
+	function tabObj:Section(sectionConfig)
+		return Library._AddSection(Library, sectionConfig, tab, contentFrame)
+	end
+
+	return tabObj
+end
+
+function Library:_SelectTab(tab, subPage)
+	if subPage.ActiveTab then
+		subPage.ActiveTab.ContentFrame.Visible = false
+		subPage.ActiveTab.SectionTopBar.Visible = false
+		subPage.ActiveTab.TabButton.TextColor3 = TEXT_INACTIVE
+	end
+
+	subPage.ActiveTab = tab
+	tab.ContentFrame.Visible = true
+	tab.SectionTopBar.Visible = true
+	tab.TabButton.TextColor3 = ACCENT
+
+	local tabBtn = tab.TabButton
+	local yPos = tabBtn.AbsolutePosition.Y - self.TabsHolder.AbsolutePosition.Y
+	Tween(self.TabSelectedFrame, {
+		Position = UDim2.new(1, -7, 0, yPos + 6)
+	}, 0.15)
+
+	tab.SectionTopBar.Size = UDim2.fromOffset(462, 43)
+	tab.SectionTopBar.Position = UDim2.fromOffset(0, 0)
+	tab.SectionTopBar.Visible = true
+end
+
+function Library:_AddSection(config, tab, contentFrame)
+	local name = config.Name or "Section"
+	local sectionIndex = #tab.Sections + 1
+
+	local sectionWrapper = Instance.new("Frame")
+	sectionWrapper.Name = "Section_" .. name
+	sectionWrapper.BackgroundTransparency = 1
+	sectionWrapper.Size = UDim2.new(1, 0, 0, 0)
+	sectionWrapper.AutomaticSize = Enum.AutomaticSize.Y
+	sectionWrapper.LayoutOrder = sectionIndex
+	sectionWrapper.Parent = contentFrame
+
+	local sectionLabel = Instance.new("TextLabel")
+	sectionLabel.Name = "SectionLabel"
+	sectionLabel.BackgroundTransparency = 1
+	sectionLabel.FontFace = FONT
+	sectionLabel.Size = UDim2.new(1, 0, 0, 22)
+	sectionLabel.Text = name
+	sectionLabel.TextColor3 = TEXT_ACTIVE
+	sectionLabel.TextSize = 23
+	sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+	sectionLabel.Parent = sectionWrapper
+
+	local elementsFrame = Instance.new("Frame")
+	elementsFrame.Name = "Elements"
+	elementsFrame.BackgroundTransparency = 1
+	elementsFrame.Size = UDim2.new(1, 0, 0, 0)
+	elementsFrame.AutomaticSize = Enum.AutomaticSize.Y
+	elementsFrame.Position = UDim2.fromOffset(0, 24)
+	elementsFrame.Parent = sectionWrapper
+
+	local elemList = Instance.new("UIListLayout")
+	elemList.SortOrder = Enum.SortOrder.LayoutOrder
+	elemList.Padding = UDim.new(0, 6)
+	elemList.Parent = elementsFrame
+
+	local elemPad = Instance.new("UIPadding")
+	elemPad.PaddingBottom = UDim.new(0, 10)
+	elemPad.Parent = elementsFrame
+
+	local section = {
+		Name = name,
+		Wrapper = sectionWrapper,
+		ElementsFrame = elementsFrame,
+		ElementCount = 0,
+	}
+	table.insert(tab.Sections, section)
+
+	local sectionObj = {}
+
+	function sectionObj:Checkbox(config)
+		return Library._AddCheckbox(Library, config, section)
+	end
+
+	function sectionObj:Slider(config)
+		return Library._AddSlider(Library, config, section)
+	end
+
+	function sectionObj:Dropdown(config)
+		return Library._AddDropdown(Library, config, section)
+	end
+
+	return sectionObj
+end
+
+function Library:_AddCheckbox(config, section)
+	local name = config.Name or "Checkbox"
+	local default = config.Default or false
+	local callback = config.Callback or function() end
+
+	section.ElementCount = section.ElementCount + 1
+
+	local holder = Instance.new("Frame")
+	holder.Name = "Checkbox_" .. name
+	holder.BackgroundTransparency = 1
+	holder.Size = UDim2.new(1, 0, 0, 22)
+	holder.LayoutOrder = section.ElementCount
+	holder.Parent = section.ElementsFrame
+
+	local checkFrame = Instance.new("Frame")
+	checkFrame.Name = "CheckFrame"
+	checkFrame.BackgroundColor3 = default and ACCENT or ELEMENT_BG
+	checkFrame.Size = UDim2.fromOffset(18, 18)
+	checkFrame.Position = UDim2.fromOffset(0, 2)
+	MakeCorner(checkFrame, UDim.new(0.1, 1))
+	checkFrame.Parent = holder
+
+	local checkIcon = Instance.new("ImageLabel")
+	checkIcon.Name = "CheckIcon"
+	checkIcon.BackgroundTransparency = 1
+	checkIcon.Image = "rbxassetid://10709790644"
+	checkIcon.ImageColor3 = Color3.new(0, 0, 0)
+	checkIcon.Position = UDim2.new(0.045, 1, 0, 2)
+	checkIcon.Size = UDim2.fromOffset(15, 15)
+	checkIcon.ImageTransparency = default and 0 or 1
+	checkIcon.Parent = checkFrame
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "ElementName"
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.FontFace = FONT
+	nameLabel.Position = UDim2.fromOffset(23, 0)
+	nameLabel.Size = UDim2.new(1, -23, 1, 0)
+	nameLabel.Text = name
+	nameLabel.TextColor3 = default and TEXT_ACTIVE or TEXT_MUTED
+	nameLabel.TextSize = 17
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = holder
+
+	local toggled = default
+	local debounce = false
+
+	local btn = Instance.new("TextButton")
+	btn.Name = "HitBox"
+	btn.BackgroundTransparency = 1
+	btn.Size = UDim2.fromScale(1, 1)
+	btn.Text = ""
+	btn.Parent = holder
+
+	btn.MouseButton1Click:Connect(function()
+		if debounce then return end
+		debounce = true
+		toggled = not toggled
+		Tween(checkFrame, {BackgroundColor3 = toggled and ACCENT or ELEMENT_BG}, 0.12)
+		Tween(checkIcon, {ImageTransparency = toggled and 0 or 1}, 0.12)
+		nameLabel.TextColor3 = toggled and TEXT_ACTIVE or TEXT_MUTED
+		callback(toggled)
+		task.wait(0.05)
+		debounce = false
+	end)
+
+	btn.MouseEnter:Connect(function()
+		Tween(checkFrame, {BackgroundColor3 = toggled and lighten(ACCENT, 0.07) or lighten(ELEMENT_BG, 0.07)}, 0.1)
+	end)
+	btn.MouseLeave:Connect(function()
+		Tween(checkFrame, {BackgroundColor3 = toggled and ACCENT or ELEMENT_BG}, 0.1)
+	end)
+
+	local obj = {}
+	function obj:Set(value)
+		toggled = value
+		Tween(checkFrame, {BackgroundColor3 = toggled and ACCENT or ELEMENT_BG}, 0.12)
+		Tween(checkIcon, {ImageTransparency = toggled and 0 or 1}, 0.12)
+		nameLabel.TextColor3 = toggled and TEXT_ACTIVE or TEXT_MUTED
+		callback(toggled)
+	end
+	function obj:Get() return toggled end
+	return obj
+end
+
+function Library:_AddSlider(config, section)
+	local name = config.Name or "Slider"
+	local min = config.Min or 0
+	local max = config.Max or 100
+	local default = config.Default or min
+	local suffix = config.Suffix or ""
+	local callback = config.Callback or function() end
+
+	section.ElementCount = section.ElementCount + 1
+
+	local holder = Instance.new("Frame")
+	holder.Name = "Slider_" .. name
+	holder.BackgroundTransparency = 1
+	holder.Size = UDim2.new(1, 0, 0, 32)
+	holder.LayoutOrder = section.ElementCount
+	holder.Parent = section.ElementsFrame
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "ElementName"
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.FontFace = FONT
+	nameLabel.Position = UDim2.fromOffset(0, 0)
+	nameLabel.Size = UDim2.new(0.6, 0, 0, 18)
+	nameLabel.Text = name
+	nameLabel.TextColor3 = TEXT_MUTED
+	nameLabel.TextSize = 17
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = holder
+
+	local valueLabel = Instance.new("TextLabel")
+	valueLabel.Name = "ValueLabel"
+	valueLabel.BackgroundTransparency = 1
+	valueLabel.FontFace = FONT
+	valueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+	valueLabel.Size = UDim2.new(0.4, 0, 0, 18)
+	valueLabel.Text = tostring(default) .. suffix
+	valueLabel.TextColor3 = ACCENT
+	valueLabel.TextSize = 17
+	valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+	valueLabel.Parent = holder
+
+	local sliderBg = Instance.new("Frame")
+	sliderBg.Name = "SliderBackground"
+	sliderBg.BackgroundColor3 = ELEMENT_BG
+	sliderBg.Position = UDim2.fromOffset(0, 20)
+	sliderBg.Size = UDim2.new(1, 0, 0, 4)
+	MakeCorner(sliderBg)
+	sliderBg.Parent = holder
+
+	local sliderFill = Instance.new("Frame")
+	sliderFill.Name = "SliderFill"
+	sliderFill.BackgroundColor3 = ACCENT
+	sliderFill.Size = UDim2.fromScale((default - min) / (max - min), 1)
+	MakeCorner(sliderFill)
+	sliderFill.Parent = sliderBg
+
+	local sliderBtn = Instance.new("TextButton")
+	sliderBtn.Name = "HitBox"
+	sliderBtn.BackgroundTransparency = 1
+	sliderBtn.Size = UDim2.new(1, 0, 0, 18)
+	sliderBtn.Position = UDim2.fromOffset(0, 16)
+	sliderBtn.Text = ""
+	sliderBtn.Parent = holder
+
+	local currentValue = default
+	local sliding = false
+
+	local function updateSlider(inputX)
+		local relX = math.clamp(inputX - sliderBg.AbsolutePosition.X, 0, sliderBg.AbsoluteSize.X)
+		local pct = relX / sliderBg.AbsoluteSize.X
+		local val = math.floor(min + (max - min) * pct)
+		currentValue = val
+		sliderFill.Size = UDim2.fromScale(pct, 1)
+		valueLabel.Text = tostring(val) .. suffix
+		nameLabel.TextColor3 = TEXT_ACTIVE
+		callback(val)
+	end
+
+	sliderBtn.MouseButton1Down:Connect(function()
+		sliding = true
+		updateSlider(UserInputService:GetMouseLocation().X)
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if sliding and input.UserInputType == Enum.UserInputType.MouseMovement then
+			updateSlider(input.Position.X)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			sliding = false
+		end
+	end)
+
+	sliderBg.MouseEnter:Connect(function()
+		Tween(sliderBg, {BackgroundColor3 = lighten(ELEMENT_BG, 0.07)}, 0.1)
+	end)
+	sliderBg.MouseLeave:Connect(function()
+		Tween(sliderBg, {BackgroundColor3 = ELEMENT_BG}, 0.1)
+	end)
+
+	local obj = {}
+	function obj:Set(value)
+		value = math.clamp(value, min, max)
+		currentValue = value
+		local pct = (value - min) / (max - min)
+		sliderFill.Size = UDim2.fromScale(pct, 1)
+		valueLabel.Text = tostring(value) .. suffix
+		callback(value)
+	end
+	function obj:Get() return currentValue end
+	return obj
+end
+
+function Library:_AddDropdown(config, section)
+	local name = config.Name or "Dropdown"
+	local options = config.Options or {}
+	local default = config.Default or nil
+	local multiSelect = config.MultiSelect or false
+	local callback = config.Callback or function() end
+
+	section.ElementCount = section.ElementCount + 1
+
+	local holder = Instance.new("Frame")
+	holder.Name = "Dropdown_" .. name
+	holder.BackgroundTransparency = 1
+	holder.Size = UDim2.new(1, 0, 0, 48)
+	holder.ClipsDescendants = false
+	holder.LayoutOrder = section.ElementCount
+	holder.Parent = section.ElementsFrame
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "ElementName"
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.FontFace = FONT
+	nameLabel.Position = UDim2.fromOffset(0, 0)
+	nameLabel.Size = UDim2.new(1, 0, 0, 18)
+	nameLabel.Text = name
+	nameLabel.TextColor3 = TEXT_MUTED
+	nameLabel.TextSize = 17
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = holder
+
+	local dropFrame = Instance.new("Frame")
+	dropFrame.Name = "DropdownFrame"
+	dropFrame.BackgroundColor3 = ELEMENT_BG
+	dropFrame.Position = UDim2.fromOffset(0, 22)
+	dropFrame.Size = UDim2.new(1, 0, 0, 26)
+	MakeCorner(dropFrame, UDim.new(0.1, 1))
+	dropFrame.Parent = holder
+
+	local selectedLabel = Instance.new("TextLabel")
+	selectedLabel.Name = "SelectedLabel"
+	selectedLabel.BackgroundTransparency = 1
+	selectedLabel.FontFace = FONT
+	selectedLabel.Position = UDim2.fromOffset(10, 0)
+	selectedLabel.Size = UDim2.new(1, -35, 1, 0)
+	selectedLabel.Text = (default and (type(default) == "table" and table.concat(default, ", ") or tostring(default))) or "Select..."
+	selectedLabel.TextColor3 = default and TEXT_ACTIVE or TEXT_MUTED
+	selectedLabel.TextSize = 17
+	selectedLabel.TextXAlignment = Enum.TextXAlignment.Left
+	selectedLabel.Parent = dropFrame
+
+	local arrowIcon = Instance.new("ImageLabel")
+	arrowIcon.Name = "Arrow"
+	arrowIcon.BackgroundTransparency = 1
+	arrowIcon.Image = "rbxassetid://108899987138167"
+	arrowIcon.ImageColor3 = ACCENT
+	arrowIcon.Position = UDim2.new(1, -22, 0.5, -7)
+	arrowIcon.Size = UDim2.fromOffset(15, 15)
+	arrowIcon.Parent = dropFrame
+
+	local openFrame = Instance.new("Frame")
+	openFrame.Name = "OpenedDropdown"
+	openFrame.BackgroundColor3 = ELEMENT_BG
+	openFrame.Position = UDim2.new(0, 0, 0, 50)
+	openFrame.Size = UDim2.new(1, 0, 0, 0)
+	openFrame.ClipsDescendants = true
+	openFrame.ZIndex = 10
+	MakeCorner(openFrame, UDim.new(0.05, 1))
+	openFrame.Visible = false
+	openFrame.Parent = holder
+
+	local optionList = Instance.new("UIListLayout")
+	optionList.SortOrder = Enum.SortOrder.LayoutOrder
+	optionList.Parent = openFrame
+
+	local isOpen = false
+	local selectedValues = {}
+
+	if default then
+		if type(default) == "table" then
+			for _, v in ipairs(default) do selectedValues[v] = true end
+		else
+			selectedValues[default] = true
+		end
+	end
+
+	local function getSelectedText()
+		local t = {}
+		for k, v in pairs(selectedValues) do
+			if v then table.insert(t, k) end
+		end
+		return #t > 0 and table.concat(t, ", ") or "Select..."
+	end
+
+	local function refreshDisplay()
+		local txt = getSelectedText()
+		selectedLabel.Text = txt
+		selectedLabel.TextColor3 = txt ~= "Select..." and TEXT_ACTIVE or TEXT_MUTED
+	end
+
+	local optionFrames = {}
+
+	local function buildOptions()
+		for _, child in ipairs(openFrame:GetChildren()) do
+			if child:IsA("Frame") then child:Destroy() end
+		end
+		optionFrames = {}
+		for i, opt in ipairs(options) do
+			local isSelected = selectedValues[opt] == true
+			local optFrame = Instance.new("Frame")
+			optFrame.Name = "Option_" .. opt
+			optFrame.BackgroundColor3 = isSelected and lighten(ELEMENT_BG, 0.08) or ELEMENT_BG
+			optFrame.Size = UDim2.new(1, 0, 0, 26)
+			optFrame.LayoutOrder = i
+			optFrame.ZIndex = 10
+			optFrame.Parent = openFrame
+
+			local optLabel = Instance.new("TextLabel")
+			optLabel.BackgroundTransparency = 1
+			optLabel.FontFace = FONT
+			optLabel.Position = UDim2.fromOffset(12, 0)
+			optLabel.Size = UDim2.new(1, -12, 1, 0)
+			optLabel.Text = opt
+			optLabel.TextColor3 = isSelected and TEXT_ACTIVE or TEXT_MUTED
+			optLabel.TextSize = 17
+			optLabel.TextXAlignment = Enum.TextXAlignment.Left
+			optLabel.ZIndex = 11
+			optLabel.Parent = optFrame
+
+			local optBtn = Instance.new("TextButton")
+			optBtn.BackgroundTransparency = 1
+			optBtn.Size = UDim2.fromScale(1, 1)
+			optBtn.Text = ""
+			optBtn.ZIndex = 12
+			optBtn.Parent = optFrame
+
+			optBtn.MouseButton1Click:Connect(function()
+				if multiSelect then
+					selectedValues[opt] = not selectedValues[opt]
+				else
+					for k in pairs(selectedValues) do selectedValues[k] = false end
+					selectedValues[opt] = true
+					isOpen = false
+					Tween(openFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.15)
+					Tween(arrowIcon, {Rotation = 0}, 0.15)
+					task.delay(0.15, function() openFrame.Visible = false end)
+				end
+				refreshDisplay()
+				buildOptions()
+				local res = multiSelect and selectedValues or opt
+				callback(res)
+			end)
+
+			optBtn.MouseEnter:Connect(function()
+				Tween(optFrame, {BackgroundColor3 = lighten(optFrame.BackgroundColor3, 0.07)}, 0.1)
+			end)
+			optBtn.MouseLeave:Connect(function()
+				Tween(optFrame, {BackgroundColor3 = selectedValues[opt] and lighten(ELEMENT_BG, 0.08) or ELEMENT_BG}, 0.1)
+			end)
+
+			table.insert(optionFrames, optFrame)
+		end
+		openFrame.Size = UDim2.new(1, 0, 0, #options * 26)
+	end
+
+	buildOptions()
+
+	local dropBtn = Instance.new("TextButton")
+	dropBtn.BackgroundTransparency = 1
+	dropBtn.Size = UDim2.fromScale(1, 1)
+	dropBtn.Text = ""
+	dropBtn.Parent = dropFrame
+
+	dropBtn.MouseButton1Click:Connect(function()
+		isOpen = not isOpen
+		if isOpen then
+			openFrame.Visible = true
+			openFrame.Size = UDim2.new(1, 0, 0, 0)
+			Tween(openFrame, {Size = UDim2.new(1, 0, 0, #options * 26)}, 0.15)
+			Tween(arrowIcon, {Rotation = 180}, 0.15)
+			holder.Size = UDim2.new(1, 0, 0, 48 + #options * 26 + 4)
+		else
+			Tween(openFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.15)
+			Tween(arrowIcon, {Rotation = 0}, 0.15)
+			task.delay(0.15, function() openFrame.Visible = false end)
+			holder.Size = UDim2.new(1, 0, 0, 48)
+		end
+	end)
+
+	dropBtn.MouseEnter:Connect(function()
+		Tween(dropFrame, {BackgroundColor3 = lighten(ELEMENT_BG, 0.07)}, 0.1)
+	end)
+	dropBtn.MouseLeave:Connect(function()
+		Tween(dropFrame, {BackgroundColor3 = ELEMENT_BG}, 0.1)
+	end)
+
+	local obj = {}
+	function obj:Set(value)
+		if multiSelect and type(value) == "table" then
+			selectedValues = {}
+			for _, v in ipairs(value) do selectedValues[v] = true end
+		elseif type(value) == "string" then
+			selectedValues = {}
+			selectedValues[value] = true
+		end
+		refreshDisplay()
+		buildOptions()
+		callback(multiSelect and selectedValues or value)
+	end
+	function obj:Get()
+		if multiSelect then return selectedValues end
+		for k, v in pairs(selectedValues) do if v then return k end end
+		return nil
+	end
+	return obj
+end
+
+return Library
