@@ -340,12 +340,9 @@ do
             local d = Input.Position - DragStart
             local nx = StartPosition.X.Offset + d.X
             local ny = StartPosition.Y.Offset + d.Y
-            Library:Tween(
-                setmetatable({ Instance = Gui }, Library):Tween(
-                    { Position = UDim2.new(StartPosition.X.Scale, nx, StartPosition.Y.Scale, ny) },
-                    TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                )
-                Gui
+            setmetatable({ Instance = Gui }, Library):Tween(
+                { Position = UDim2.new(StartPosition.X.Scale, nx, StartPosition.Y.Scale, ny) },
+                TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             )
         end
         local InputChangedConn
