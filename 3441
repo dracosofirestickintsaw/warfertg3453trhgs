@@ -1,0 +1,1239 @@
+getgenv = getgenv or function()
+    return _G
+end
+
+if getgenv().Library and getgenv().Library.Exit then
+    getgenv().Library:Exit()
+end
+
+cloneref = cloneref or function(Object)
+    return Object
+end
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local GuiService = game:GetService("GuiService")
+local CoreGui = cloneref(game:GetService("CoreGui"))
+
+gethui = gethui or function()
+    return CoreGui
+end
+
+local Mouse = Players.LocalPlayer:GetMouse()
+local IsMobile = UserInputService.TouchEnabled == true
+
+local IconsURL = "https://raw.githubusercontent.com/Footagesus/Icons/main/Main-v2.lua"
+local Icons
+
+pcall(function()
+    local src = game.HttpGetAsync and game:HttpGetAsync(IconsURL) or HttpService:GetAsync(IconsURL)
+    Icons = loadstring(src)()
+end)
+
+if Icons then
+    Icons.SetIconsType("lucide")
+end
+
+local function IsAssetId(iconName)
+    return type(iconName) == "string" and (iconName:match("^rbxassetid://") or iconName:match("^%d+$"))
+end
+
+local function GetAssetImage(iconName)
+    if type(iconName) == "string" and iconName:match("^%d+$") then
+        return "rbxassetid://" .. iconName
+    end
+    return iconName
+end
+
+local function ApplyIcon(container, iconName, size, tint)
+    if not iconName or iconName == "" then
+        return
+    end
+    tint = tint or Color3.fromRGB(164, 139, 242)
+    if IsAssetId(iconName) then
+        local img = Instance.new("ImageLabel")
+        img.BackgroundTransparency = 1
+        img.Size = size or UDim2.fromScale(1, 1)
+        img.AnchorPoint = Vector2.new(0.5, 0.5)
+        img.Position = UDim2.fromScale(0.5, 0.5)
+        img.Image = GetAssetImage(iconName)
+        img.ImageColor3 = tint
+        img.BorderSizePixel = 0
+        img.Parent = container
+        return
+    end
+    if Icons then
+        local ok, pack = pcall(function()
+            return Icons.Image({
+                Icon = iconName,
+                Size = size or UDim2.fromScale(1, 1),
+                Colors = { tint },
+            })
+        end)
+        if ok and pack and pack.IconFrame then
+            local fr = pack.IconFrame
+            fr.BackgroundTransparency = 1
+            fr.AnchorPoint = Vector2.new(0.5, 0.5)
+            fr.Position = UDim2.fromScale(0.5, 0.5)
+            fr.BorderSizePixel = 0
+            fr.Parent = container
+        end
+    end
+end
+
+local C = {
+    Accent = Color3.fromRGB(164, 139, 242),
+    Main = Color3.fromRGB(30, 30, 30),
+    Tabs = Color3.fromRGB(20, 20, 20),
+    Content = Color3.fromRGB(20, 20, 20),
+    Top = Color3.fromRGB(15, 15, 15),
+    El = Color3.fromRGB(24, 24, 24),
+    Dim = Color3.fromRGB(127, 127, 127),
+    Muted = Color3.fromRGB(115, 115, 115),
+    SlideTrack = Color3.fromRGB(24, 24, 24),
+    SlideMid = Color3.fromRGB(30, 30, 30),
+}
+
+local WWIN, WBODY, HDR, TW, PAD, CW, CH = 579, 379, 57, 94, 11, 462, 358
+
+local function hoverLift(c)
+    return Color3.new(
+        math.clamp(c.R * 1.11, 0, 1),
+        math.clamp(c.G * 1.11, 0, 1),
+        math.clamp(c.B * 1.11, 0, 1)
+    )
+end
+
+local function roundNum(n, d)
+    local m = (d and 10 ^ d) or 100
+    return math.floor((n + 1e-9) * m) / m
+end
+
+local Library = {
+    Flags = {},
+    Connections = {},
+    Threads = {},
+    Holder = nil,
+    UnusedHolder = nil,
+    ActiveDropdownClose = nil,
+    Animation = { Time = 0.3, Style = "Cubic", Direction = "Out" },
+    Directory = "NeptuneUILib",
+    Font = Font.new("rbxasset://fonts/families/SourceSansPro.json"),
+    FontSize = 17,
+}
+
+Library.__index = Library
+
+do
+    if makefolder then
+        pcall(makefolder, Library.Directory)
+        pcall(makefolder, Library.Directory .. "/Assets")
+    end
+
+    local okAsset = false
+    if isfile and writefile and getcustomasset and game.HttpGet then
+        okAsset = pcall(function()
+            local pth = Library.Directory .. "/Assets/InterSemiBold.ttf"
+            if not isfile(pth) then
+                writefile(pth, game:HttpGet("https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/InterSemibold.ttf"))
+            end
+            local js =
+                '{"name":"InterSemiBold","faces":[{"name":"InterSemiBold","weight":400,"style":"Regular","assetId":"' .. getcustomasset(pth) .. '"}]}'
+            local fp = Library.Directory .. "/Assets/InterSemiBold.font"
+            writefile(fp, js)
+            Library.Font = Font.new(getcustomasset(fp))
+        end)
+    end
+
+    function Library.Exit()
+        for _, c in Library.Connections do
+            pcall(function()
+                if type(c.Connection) == "table" and c.Connection.Disconnect then
+                    c.Connection:Disconnect()
+                elseif c.Connection and c.Connection.Disconnect then
+                    c.Connection:Disconnect()
+                end
+            end)
+        end
+        Library.ActiveDropdownClose = nil
+        if Library.Holder and Library.Holder.Instance then
+            Library.Holder.Instance:Destroy()
+        end
+        if Library.UnusedHolder and Library.UnusedHolder.Instance then
+            Library.UnusedHolder.Instance:Destroy()
+        end
+        getgenv().Library = nil
+    end
+
+    function Library:SafeCall(fn, ...)
+        local ok, r = pcall(fn, ...)
+        if not ok then
+            warn(r)
+        end
+        return ok, r
+    end
+
+    function Library:Tween(p, Info, Raw)
+        local O = Raw or self.Instance
+        if not O then
+            return nil
+        end
+        Info = Info
+            or TweenInfo.new(
+                Library.Animation.Time,
+                Enum.EasingStyle[Library.Animation.Style],
+                Enum.EasingDirection[Library.Animation.Direction]
+            )
+        local t = TweenService:Create(O, Info, p)
+        t:Play()
+        return t
+    end
+
+    local function FadeOne(Object, Props, Visible)
+        for _, Prop in ipairs(Props) do
+            local ov = Object[Prop]
+            if Visible then
+                Object[Prop] = 1
+                TweenService:Create(
+                    Object,
+                    TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                    { [Prop] = ov }
+                ):Play()
+            else
+                TweenService:Create(
+                    Object,
+                    TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                    { [Prop] = 1 }
+                ):Play()
+            end
+        end
+    end
+
+    function Library:FadeDescendants(Show, Finish)
+        local root = self.Instance
+        root.Visible = true
+        local descendants = root:GetDescendants()
+        table.insert(descendants, root)
+        local lastTween
+        for _, g in ipairs(descendants) do
+            if g:IsA("TextLabel") or g:IsA("TextButton") or g:IsA("TextBox") then
+                FadeOne(g, { "TextTransparency" }, Show)
+                lastTween = nil
+            elseif g:IsA("ImageLabel") or g:IsA("ImageButton") then
+                FadeOne(g, { "ImageTransparency" }, Show)
+            elseif g:IsA("GuiObject") then
+                if g.BackgroundTransparency < 1 then
+                    FadeOne(g, { "BackgroundTransparency" }, Show)
+                end
+            end
+        end
+        task.delay(Library.Animation.Time, function()
+            if not Show then
+                root.Visible = false
+            end
+            if Finish then
+                Finish()
+            end
+        end)
+    end
+
+    function Library:Connect(signalName, Callback)
+        local hold = {}
+        Library:Thread(function()
+            local inst = self.Instance
+            if typeof(signalName) == "string" and inst and inst[signalName] then
+                if IsMobile and (signalName == "MouseButton1Down" or signalName == "MouseButton1Click") then
+                    local last = 0
+                    local function fire(...)
+                        local t = tick()
+                        if t - last < 0.15 then
+                            return
+                        end
+                        last = t
+                        Callback(...)
+                    end
+                    local n1 = inst[signalName]:Connect(fire)
+                    local n2 = inst.InputBegan:Connect(function(inpt)
+                        if inpt.UserInputType == Enum.UserInputType.Touch or inpt.UserInputType == Enum.UserInputType.MouseButton1 then
+                            fire(inpt)
+                        end
+                    end)
+                    hold.Connection = {
+                        Disconnect = function()
+                            pcall(function()
+                                n1:Disconnect()
+                            end)
+                            pcall(function()
+                                n2:Disconnect()
+                            end)
+                        end,
+                    }
+                else
+                    hold.Connection = inst[signalName]:Connect(Callback)
+                end
+            elseif typeof(signalName) ~= "string" then
+                hold.Connection = signalName:Connect(Callback)
+            end
+        end)
+        table.insert(Library.Connections, hold)
+        return hold
+    end
+
+    function Library:Thread(fn)
+        local cr = coroutine.create(fn)
+        coroutine.resume(cr)
+        table.insert(Library.Threads, cr)
+    end
+
+    function Library.OnHover(Host, FnIn, FnOut)
+        Host:Connect("MouseEnter", FnIn)
+        Host:Connect("MouseLeave", FnOut)
+    end
+
+    function Library:Create(className, Props)
+        local Wrap = {
+            Instance = Instance.new(className),
+        }
+
+        if type(Props) ~= "table" then
+            return setmetatable(Wrap, Library)
+        end
+
+        for Prop, Value in Props do
+            if Prop == "FontFace" then
+                Wrap.Instance.FontFace = Library.Font
+            elseif Prop == "TextSize" then
+                Wrap.Instance.TextSize = Library.FontSize
+            elseif Prop == "Name" then
+                Wrap.Instance.Name = "\0"
+            elseif className == "TextButton" and Prop == "AutoButtonColor" then
+                Wrap.Instance.AutoButtonColor = false
+            elseif className == "TextButton" and Prop == "Text" then
+                Wrap.Instance.Text = ""
+            else
+                Wrap.Instance[Prop] = Value
+            end
+        end
+
+        return setmetatable(Wrap, Library)
+    end
+
+    function Library:IsMouseOverFrame()
+        local o = self.Instance
+        if not o.Visible then
+            return false
+        end
+        local inset = GuiService:GetGuiInset()
+        local gx, gy = Mouse.X, Mouse.Y - inset.Y
+        local p, s = o.AbsolutePosition, o.AbsoluteSize
+        return gx >= p.X and gx <= p.X + s.X and gy >= p.Y and gy <= p.Y + s.Y
+    end
+
+    function Library:MakeDraggable()
+        local Gui = self.Instance
+        local Dragging = false
+        local DragStart
+        local StartPosition
+        local function Set(Input)
+            local d = Input.Position - DragStart
+            local nx = StartPosition.X.Offset + d.X
+            local ny = StartPosition.Y.Offset + d.Y
+            Library:Tween(
+                setmetatable({ Instance = Gui }, Library),
+                { Position = UDim2.new(StartPosition.X.Scale, nx, StartPosition.Y.Scale, ny) },
+                TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                Gui
+            )
+        end
+        local InputChangedConn
+        self:Connect("InputBegan", function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+                Dragging = true
+                DragStart = Input.Position
+                StartPosition = Gui.Position
+                if InputChangedConn then
+                    return
+                end
+                InputChangedConn = Input.Changed:Connect(function()
+                    if Input.UserInputState == Enum.UserInputState.End then
+                        Dragging = false
+                        InputChangedConn:Disconnect()
+                        InputChangedConn = nil
+                    end
+                end)
+            end
+        end)
+
+        Library:Connect(UserInputService.InputChanged, function(Input)
+            if Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
+                Set(Input)
+            end
+        end)
+    end
+
+    Library.Holder = Library:Create("ScreenGui", {
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        Parent = gethui(),
+        Enabled = true,
+        DisplayOrder = 100900,
+    })
+
+    Library.UnusedHolder = Library:Create("ScreenGui", {
+        Parent = gethui(),
+        Enabled = false,
+        ResetOnSpawn = false,
+    })
+
+    function Library.Window(_Self, Params)
+        Params = Params or {}
+        local W = {
+            Name = Params.Name or Params.name or "neptune",
+            Pages = {},
+            Items = {},
+            SubBtns = {},
+        }
+
+        local Shell = Library:Create("Frame", {
+            Parent = Library.Holder.Instance,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            Size = UDim2.fromOffset(WWIN, WBODY + HDR + 6),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+        })
+        Shell:MakeDraggable()
+
+        local Header = Library:Create("Frame", {
+            Parent = Shell.Instance,
+            Size = UDim2.fromOffset(WWIN, HDR),
+            BackgroundColor3 = C.Top,
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(0, 0),
+            ZIndex = 2,
+            ClipsDescendants = false,
+        })
+        Library:Create("UICorner", {
+            Parent = Header.Instance,
+            CornerRadius = UDim.new(0, 5),
+        })
+
+        Library:Create("TextLabel", {
+            Parent = Header.Instance,
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(15, 8),
+            Size = UDim2.fromOffset(200, 40),
+            Text = W.Name,
+            TextColor3 = Color3.new(1, 1, 1),
+            TextSize = math.max(Library.FontSize + 5, 22),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BorderSizePixel = 0,
+        })
+
+        local SubDock = Instance.new("Frame")
+        SubDock.AnchorPoint = Vector2.new(1, 0.5)
+        SubDock.Position = UDim2.new(1, -10, 0.52, 0)
+        SubDock.Size = UDim2.fromOffset(360, HDR - 6)
+        SubDock.BackgroundTransparency = 1
+        SubDock.Parent = Header.Instance
+
+        local SubScroll = Library:Create("ScrollingFrame", {
+            Parent = SubDock,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            ScrollBarThickness = 0,
+            ScrollingDirection = Enum.ScrollingDirection.X,
+            AutomaticCanvasSize = Enum.AutomaticSize.X,
+        })
+
+        Instance.new("UIListLayout").Parent = SubScroll.Instance
+        SubScroll.Instance.UIListLayout.FillDirection = Enum.FillDirection.Horizontal
+        SubScroll.Instance.UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+        SubScroll.Instance.UIListLayout.Padding = UDim.new(0, 8)
+
+        local SubLine = Library:Create("Frame", {
+            Parent = Header.Instance,
+            BackgroundColor3 = C.Accent,
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.fromOffset(200, HDR - 1),
+            Size = UDim2.fromOffset(36, 4),
+            BorderSizePixel = 0,
+            ZIndex = 3,
+        })
+        Library:Create("UICorner", {
+            Parent = SubLine.Instance,
+            CornerRadius = UDim.new(0.08, 1),
+        })
+
+        W.Items.Header = Header
+        W.Items.SubScroll = SubScroll
+        W.Items.SubLine = SubLine
+        W.Items.Shell = Shell
+
+        local Main = Library:Create("Frame", {
+            Parent = Shell.Instance,
+            Position = UDim2.fromOffset(0, HDR + 5),
+            Size = UDim2.fromOffset(WWIN, WBODY),
+            BackgroundColor3 = C.Main,
+            BorderSizePixel = 0,
+        })
+        Library:Create("UICorner", {
+            Parent = Main.Instance,
+            CornerRadius = UDim.new(0, 5),
+        })
+
+        local Tabs = Library:Create("Frame", {
+            Parent = Main.Instance,
+            BackgroundColor3 = C.Tabs,
+            ClipsDescendants = true,
+            Size = UDim2.fromOffset(TW, WBODY),
+            BorderSizePixel = 0,
+        })
+        Library:Create("UICorner", {
+            Parent = Tabs.Instance,
+            CornerRadius = UDim.new(0, 5),
+        })
+
+        local TabInd = Instance.new("Frame")
+        TabInd.Name = "\0TI"
+        TabInd.BackgroundColor3 = C.Accent
+        TabInd.Size = UDim2.fromOffset(5, 17)
+        TabInd.AnchorPoint = Vector2.new(0, 0.5)
+        TabInd.Position = UDim2.new(0.894, 6, 0, 32)
+        TabInd.BorderSizePixel = 0
+        TabInd.ZIndex = 2
+        TabInd.Parent = Tabs.Instance
+        local tc = Instance.new("UICorner")
+        tc.CornerRadius = UDim.new(0.1, 1)
+        tc.Parent = TabInd
+
+        local TabScroller = Instance.new("ScrollingFrame")
+        TabScroller.BackgroundTransparency = 1
+        TabScroller.ScrollBarThickness = 0
+        TabScroller.CanvasSize = UDim2.fromOffset(0, 0)
+        TabScroller.Position = UDim2.fromOffset(0, 6)
+        TabScroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        TabScroller.Size = UDim2.fromOffset(TW, WBODY - 12)
+        TabScroller.BorderSizePixel = 0
+        TabScroller.Parent = Tabs.Instance
+
+        local tabLay = Instance.new("UIListLayout")
+        tabLay.Padding = UDim.new(0, 4)
+        tabLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        tabLay.Parent = TabScroller
+
+        local Content = Library:Create("Frame", {
+            Parent = Main.Instance,
+            BackgroundColor3 = C.Content,
+            Size = UDim2.fromOffset(CW, CH),
+            Position = UDim2.fromOffset(TW + PAD, 9),
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+        })
+        Library:Create("UICorner", {
+            Parent = Content.Instance,
+            CornerRadius = UDim.new(0, 5),
+        })
+
+        function W:_TabUnderline(TabLbl)
+            task.defer(function()
+                local th = Tabs.Instance
+                local y = TabLbl.AbsolutePosition.Y - th.AbsolutePosition.Y + TabLbl.AbsoluteSize.Y / 2
+                TweenService:Create(TabInd, TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Position = UDim2.new(0.894, 6, 0, math.clamp(y - 9, 10, WBODY - 18)),
+                }):Play()
+            end)
+        end
+
+        function W:_SubUnderline(BtnInst)
+            task.defer(function()
+                local sc = SubScroll.Instance
+                local x = BtnInst.AbsolutePosition.X - SubDock.AbsolutePosition.X + sc.CanvasPosition.X
+                SubLine:Tween({
+                    Position = UDim2.new(0, math.clamp(x, 140, CW + 140), HDR - 1, -4),
+                    Size = UDim2.fromOffset(math.max(BtnInst.AbsoluteSize.X, 34), 4),
+                }, TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), SubLine.Instance)
+            end)
+        end
+
+        function W:_LayoutSub(PageObj)
+            for _, R in ipairs(W.SubBtns) do
+                R.B.Parent = PageObj.Active and PageObj == R.Page and SubScroll.Instance or Library.UnusedHolder.Instance
+                R.B.Visible = PageObj.Active and PageObj == R.Page
+            end
+        end
+
+        W.Items.TabsScroll = TabScroller
+        W.Items.TabListLayout = tabLay
+        W.Items.Content = Content
+        W.Items.TabInd = TabInd
+
+        function W:AddPage(...)
+            return Library.Page(W, ...)
+        end
+
+        return setmetatable(W, Library)
+    end
+
+    function Library.Page(SelfWindow, Params)
+        Params = Params or {}
+        local Pg = {
+            Name = Params.Name or Params.name or "page",
+            Description = Params.Description or Params.description or "",
+            Icon = Params.Icon or Params.icon or "",
+            Search = Params.Search == true or Params.search == true,
+            Window = SelfWindow,
+            SubPages = {},
+            Active = false,
+            SearchItems = {},
+        }
+
+        local TabBtn = Library:Create("TextButton", {
+            Parent = SelfWindow.Items.TabsScroll,
+            BackgroundTransparency = 1,
+            Size = UDim2.fromOffset(TW - 18, 32),
+            Text = "",
+        })
+
+        local Row = Instance.new("Frame")
+        Row.BackgroundTransparency = 1
+        Row.Size = UDim2.fromScale(1, 1)
+        Row.Parent = TabBtn.Instance
+
+        local hl = Instance.new("UIListLayout")
+        hl.FillDirection = Enum.FillDirection.Horizontal
+        hl.VerticalAlignment = Enum.VerticalAlignment.Center
+        hl.Padding = UDim.new(0, 8)
+        hl.Parent = Row
+
+        local icHost = Instance.new("Frame")
+        icHost.BackgroundTransparency = 1
+        icHost.Size = UDim2.fromOffset(18, 18)
+        icHost.Parent = Row
+        if Pg.Icon ~= "" then
+            ApplyIcon(icHost, Pg.Icon, UDim2.fromScale(1, 1), C.Accent)
+        end
+
+        local TabLbl = Library:Create("TextLabel", {
+            Parent = Row,
+            BackgroundTransparency = 1,
+            AutomaticSize = Enum.AutomaticSize.X,
+            Text = string.lower(Pg.Name),
+            TextColor3 = C.Muted,
+            TextSize = 18,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BorderSizePixel = 0,
+        })
+
+        local Overlay = Library:Create("Frame", {
+            Parent = Library.UnusedHolder.Instance,
+            BackgroundTransparency = 1,
+            Visible = false,
+            Size = UDim2.fromScale(1, 1),
+            ClipsDescendants = Pg.Search,
+            BorderSizePixel = 0,
+        })
+
+        local searchY = Pg.Search and 34 or 0
+        local BodyFrame = Instance.new("Frame")
+        BodyFrame.Parent = Overlay.Instance
+        BodyFrame.Position = UDim2.fromOffset(0, searchY)
+        BodyFrame.Size = UDim2.new(1, 0, 1, -searchY)
+        BodyFrame.BorderSizePixel = 0
+        BodyFrame.BackgroundTransparency = 1
+
+        if Pg.Search then
+            local sb = Instance.new("TextBox")
+            sb.BorderSizePixel = 0
+            sb.BackgroundColor3 = C.El
+            sb.Position = UDim2.fromOffset(10, 4)
+            sb.Size = UDim2.new(1, -20, 0, 26)
+            sb.PlaceholderText = "search.."
+            sb.ClearTextOnFocus = false
+            sb.Text = ""
+            sb.FontFace = Library.Font
+            sb.TextSize = Library.FontSize
+            sb.Parent = Overlay.Instance
+            local sc = Instance.new("UICorner")
+            sc.CornerRadius = UDim.new(0, 4)
+            sc.Parent = sb
+            sb:GetPropertyChangedSignal("Text"):Connect(function()
+                local q = sb.Text:lower()
+                for _, r in ipairs(Pg.SearchItems) do
+                    r.H.Visible = q == "" or string.find(string.lower(r.N), q, 1, true) ~= nil
+                end
+            end)
+        end
+
+        function Pg:RegisterSearch(H, NM)
+            if Pg.Search then
+                table.insert(Pg.SearchItems, { H = H, N = NM })
+            end
+        end
+
+        TabBtn:Connect("MouseButton1Down", function()
+            for _, Q in ipairs(SelfWindow.Pages) do
+                Q:Set(Q == Pg)
+            end
+        end)
+
+        function Pg:Set(On)
+            Pg.Active = On
+            TabLbl:Tween({ TextColor3 = On and C.Accent or C.Muted })
+            if On then
+                Overlay.Instance.Parent = SelfWindow.Items.Content.Instance
+                Overlay.Instance.Visible = true
+                Overlay.Instance.Size = UDim2.fromScale(1, 1)
+                SelfWindow:_TabUnderline(TabLbl.Instance)
+                SelfWindow:_LayoutSub(Pg)
+                if #Pg.SubPages > 0 then
+                    local tgt = Pg.ActiveSub or Pg.SubPages[#Pg.SubPages]
+                    tgt:Sel()
+                end
+            else
+                Overlay.Instance.Parent = Library.UnusedHolder.Instance
+                Overlay.Instance.Visible = false
+            end
+        end
+
+        SelfWindow.Items.TabListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            local lay = SelfWindow.Items.TabListLayout
+            SelfWindow.Items.TabsScroll.CanvasSize = UDim2.fromOffset(0, lay.AbsoluteContentSize.Y + 12)
+        end)
+
+        table.insert(SelfWindow.Pages, Pg)
+        if #SelfWindow.Pages == 1 then
+            Pg:Set(true)
+        end
+
+        function Pg:SubPage(Pr)
+            return Library.SubPage(Pg, Pr)
+        end
+
+        Pg.OverlayInst = Overlay
+        Pg.Body = BodyFrame
+        return setmetatable(Pg, Library)
+    end
+
+    function Library.SubPage(Page, Params)
+        Params = Params or {}
+        local SP = {
+            Name = Params.Name or Params.name or "sub",
+            Page = Page,
+            Window = Page.Window,
+            Active = false,
+        }
+
+        local W = Page.Window
+
+        local Btn = Instance.new("TextButton")
+        Btn.BackgroundTransparency = 1
+        Btn.AutoButtonColor = false
+        Btn.Text = ""
+        Btn.BorderSizePixel = 0
+        Btn.AutomaticSize = Enum.AutomaticSize.X
+        Btn.LayoutOrder = #Page.SubPages + 1
+        Btn.Parent = Library.UnusedHolder.Instance
+
+        local Lb = Instance.new("TextLabel")
+        Lb.BackgroundTransparency = 1
+        Lb.FontFace = Library.Font
+        Lb.TextSize = Library.FontSize
+        Lb.Text = string.lower(SP.Name)
+        Lb.TextColor3 = C.Muted
+        Lb.Size = UDim2.fromOffset(0, 22)
+        Lb.AutomaticSize = Enum.AutomaticSize.X
+        Lb.Parent = Btn
+
+        table.insert(W.SubBtns, { Page = Page, B = Btn })
+
+        local RootSf = Library:Create("ScrollingFrame", {
+            Parent = Page.Body,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            ScrollBarThickness = 2,
+            CanvasSize = UDim2.fromOffset(CW, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            Visible = false,
+        })
+
+        Instance.new("UIListLayout").Parent = RootSf.Instance
+        RootSf.Instance.UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        RootSf.Instance.UIListLayout.Padding = UDim.new(0, 10)
+        RootSf.Instance.UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+        SP.Scroll = RootSf
+        SP._Lbl = Lb
+
+        table.insert(Page.SubPages, SP)
+
+        function SP:Sel()
+            for _, O in ipairs(Page.SubPages) do
+                O.Active = O == SP
+                O.Scroll.Instance.Visible = O == SP
+                if O._Lbl then
+                    TweenService:Create(
+                        O._Lbl,
+                        TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                        { TextColor3 = (O == SP) and C.Accent or C.Muted }
+                    ):Play()
+                end
+            end
+            Page.ActiveSub = SP
+            W:_SubUnderline(Btn)
+            W:_LayoutSub(Page)
+        end
+
+        Btn.MouseButton1Click:Connect(function()
+            SP:Sel()
+        end)
+
+        function SP:Section(Prm)
+            return Library.Section(SP, Prm)
+        end
+
+        if #Page.SubPages == 1 and Page.Active then
+            task.defer(function()
+                SP:Sel()
+            end)
+        end
+
+        return setmetatable(SP, Library)
+    end
+
+    function Library.Section(Sub, Params)
+        Params = Params or {}
+        local SecName = Params.Name or Params.name or "section"
+        local ScrollInst = Sub.Scroll.Instance
+
+        local Hold = Instance.new("Frame")
+        Hold.BackgroundTransparency = 1
+        Hold.AutomaticSize = Enum.AutomaticSize.Y
+        Hold.Size = UDim2.new(1, -22, 0, 0)
+        Hold.Parent = ScrollInst
+
+        local Top = Instance.new("Frame")
+        Top.Size = UDim2.new(1, 0, 0, 43)
+        Top.BackgroundColor3 = C.Top
+        Top.BorderSizePixel = 0
+        Top.Parent = Hold
+        local ucx = Instance.new("UICorner")
+        ucx.CornerRadius = UDim.new(0, 5)
+        ucx.Parent = Top
+
+        local St = Instance.new("TextLabel")
+        St.BackgroundTransparency = 1
+        St.Position = UDim2.fromOffset(13, 5)
+        St.Size = UDim2.new(1, -20, 0, 32)
+        St.FontFace = Library.Font
+        St.TextSize = math.max(Library.FontSize + 6, 20)
+        St.TextXAlignment = Enum.TextXAlignment.Left
+        St.Text = string.lower(SecName)
+        St.TextColor3 = Color3.new(1, 1, 1)
+        St.BorderSizePixel = 0
+        St.Parent = Top
+
+        local Inner = Instance.new("Frame")
+        Inner.BackgroundTransparency = 1
+        Inner.Position = UDim2.fromOffset(0, 48)
+        Inner.Size = UDim2.new(1, 0, 0, 0)
+        Inner.AutomaticSize = Enum.AutomaticSize.Y
+        Inner.Parent = Hold
+
+        local pl = Instance.new("UIListLayout")
+        pl.Padding = UDim.new(0, 22)
+        pl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        pl.SortOrder = Enum.SortOrder.LayoutOrder
+        pl.Parent = Inner
+
+        local Sec = { Inner = Inner, Sub = Sub }
+
+        function Sec:Toggle(P)
+            P = P or {}
+            local NM = P.Name or P.name or "toggle"
+            local Flag = P.Flag or P.flag or NM
+            local Def = P.Default ~= nil and P.Default or (P.default ~= nil and P.default or false)
+            local CB = P.Callback or P.callback or function() end
+
+            local Row = Instance.new("Frame")
+            Row.BackgroundTransparency = 1
+            Row.Size = UDim2.new(1, -26, 0, 22)
+            Row.Parent = Inner
+
+            local Hit = Instance.new("TextButton")
+            Hit.Text = ""
+            Hit.BackgroundTransparency = 1
+            Hit.Size = UDim2.new(1, 0, 1, 0)
+            Hit.Parent = Row
+
+            local Box = Instance.new("Frame")
+            Box.Size = UDim2.fromOffset(18, 18)
+            Box.Position = UDim2.new(0, 0, 0.5, -9)
+            Box.BorderSizePixel = 0
+            Box.Parent = Row
+            local boxRnd = Instance.new("UICorner")
+            boxRnd.CornerRadius = UDim.new(0.1, 1)
+            boxRnd.Parent = Box
+
+            local Chk = Instance.new("ImageLabel")
+            Chk.BackgroundTransparency = 1
+            Chk.Image = "rbxassetid://10709790644"
+            Chk.Size = UDim2.fromOffset(14, 14)
+            Chk.Position = UDim2.new(0, 2, 0.5, -7)
+            Chk.Visible = false
+            Chk.Parent = Box
+
+            local Lbl = Instance.new("TextLabel")
+            Lbl.BackgroundTransparency = 1
+            Lbl.FontFace = Library.Font
+            Lbl.TextSize = Library.FontSize
+            Lbl.Position = UDim2.fromOffset(26, 0)
+            Lbl.Size = UDim2.new(1, -30, 1, 0)
+            Lbl.Text = NM
+            Lbl.TextXAlignment = Enum.TextXAlignment.Left
+            Lbl.TextColor3 = C.Dim
+            Lbl.Parent = Row
+
+            local On = Def
+            local function Sync()
+                Library.Flags[Flag] = On
+                Box.BackgroundColor3 = On and C.Accent or C.El
+                Lbl.TextColor3 = On and Color3.new(1, 1, 1) or C.Dim
+                Chk.Visible = On
+                Library:SafeCall(CB, On)
+            end
+
+            Hit.MouseButton1Click:Connect(function()
+                On = not On
+                Sync()
+            end)
+
+            Library.OnHover(setmetatable({ Instance = Box }, Library), function()
+                TweenService:Create(Box, TweenInfo.new(0.1), { BackgroundColor3 = hoverLift(On and C.Accent or C.El) })
+            end, function()
+                TweenService:Create(Box, TweenInfo.new(0.1), { BackgroundColor3 = On and C.Accent or C.El })
+            end)
+
+            Library.OnHover(setmetatable({ Instance = Hit }, Library), function()
+                Lbl.TextColor3 = hoverLift(Lbl.TextColor3)
+            end, function()
+                Lbl.TextColor3 = On and Color3.new(1, 1, 1) or C.Dim
+            end)
+
+            Sync()
+            Sub.Page:RegisterSearch(Row, NM)
+        end
+
+        function Sec:Slider(P)
+            P = P or {}
+            local NM = P.Name or P.name or "slider"
+            local Flag = P.Flag or P.flag or NM
+            local Mn = P.Min or P.min or 0
+            local Mx = P.Max or P.max or 100
+            local Def = P.Default or P.default or Mn
+            local CB = P.Callback or P.callback or function() end
+
+            local Hf = Instance.new("Frame")
+            Hf.BackgroundTransparency = 1
+            Hf.Size = UDim2.new(1, -26, 0, 44)
+            Hf.Parent = Inner
+
+            local Lbl = Instance.new("TextLabel")
+            Lbl.Text = NM
+            Lbl.BackgroundTransparency = 1
+            Lbl.FontFace = Library.Font
+            Lbl.TextSize = Library.FontSize
+            Lbl.TextColor3 = C.Dim
+            Lbl.Size = UDim2.new(1, 0, 0, 20)
+            Lbl.TextXAlignment = Enum.TextXAlignment.Left
+            Lbl.Parent = Hf
+
+            local Pd = Instance.new("TextButton")
+            Pd.Text = ""
+            Pd.BackgroundTransparency = 1
+            Pd.Position = UDim2.fromOffset(0, 22)
+            Pd.Size = UDim2.new(1, 0, 0, 18)
+            Pd.Parent = Hf
+
+            local Bg = Instance.new("Frame")
+            Bg.AnchorPoint = Vector2.new(0, 1)
+            Bg.Position = UDim2.new(0, 0, 1, 0)
+            Bg.Size = UDim2.new(1, 0, 0, 3)
+            Bg.BackgroundColor3 = C.SlideTrack
+            Bg.BorderSizePixel = 0
+            Bg.Parent = Pd
+            Instance.new("UICorner").Parent = Bg
+
+            local Mid = Instance.new("Frame")
+            Mid.AnchorPoint = Vector2.new(0, 1)
+            Mid.Position = UDim2.new(0, 0, 1, 0)
+            Mid.Size = UDim2.new(0.3, 0, 0, 3)
+            Mid.BackgroundColor3 = C.SlideMid
+            Mid.BorderSizePixel = 0
+            Mid.Parent = Pd
+            Instance.new("UICorner").Parent = Mid
+
+            local Fill = Instance.new("Frame")
+            Fill.BackgroundColor3 = C.Accent
+            Fill.BorderSizePixel = 0
+            Fill.Size = UDim2.new(1, 0, 1, 0)
+            Fill.Parent = Mid
+            Instance.new("UICorner").Parent = Fill
+
+            local Drag = false
+            local function SetA(a)
+                a = math.clamp(a, 0, 1)
+                Mid.Size = UDim2.new(a, 0, 0, 3)
+                local v = roundNum(Mn + (Mx - Mn) * a)
+                Library.Flags[Flag] = v
+                Lbl.TextColor3 = a > 0.02 and Color3.new(1, 1, 1) or C.Dim
+                Library:SafeCall(CB, v)
+            end
+
+            SetA((Def - Mn) / math.max(Mx - Mn, 1e-6))
+
+            Pd.MouseButton1Down:Connect(function()
+                Drag = true
+            end)
+            Library:Connect(UserInputService.InputEnded, function(I)
+                if I.UserInputType == Enum.UserInputType.MouseButton1 then
+                    Drag = false
+                end
+            end)
+            Library:Connect(UserInputService.InputChanged, function(I)
+                if not Drag or I.UserInputType ~= Enum.UserInputType.MouseMovement then
+                    return
+                end
+                local ap = Pd.AbsolutePosition
+                SetA((Mouse.X - ap.X) / math.max(Pd.AbsoluteSize.X, 1))
+            end)
+
+            Library.OnHover(setmetatable({ Instance = Pd }, Library), function()
+                Bg.BackgroundColor3 = hoverLift(C.SlideTrack)
+            end, function()
+                Bg.BackgroundColor3 = C.SlideTrack
+            end)
+
+            Sub.Page:RegisterSearch(Hf, NM)
+        end
+
+        function Sec:Dropdown(P)
+            P = P or {}
+            local NM = P.Name or P.name or "dropdown"
+            local Flag = P.Flag or P.flag or NM
+            local List = P.Items or P.items or {}
+            local Multi = P.Multi == true or P.multi == true
+            local Def = P.Default or P.default
+            local CB = P.Callback or P.callback or function() end
+
+            local Wrap = Instance.new("Frame")
+            Wrap.BackgroundTransparency = 1
+            Wrap.ClipsDescendants = true
+            Wrap.AutomaticSize = Enum.AutomaticSize.Y
+            Wrap.Size = UDim2.new(1, -26, 0, 0)
+            Wrap.Parent = Inner
+
+            local Tit = Instance.new("TextLabel")
+            Tit.Text = NM
+            Tit.BackgroundTransparency = 1
+            Tit.FontFace = Library.Font
+            Tit.TextSize = Library.FontSize
+            Tit.TextColor3 = C.Dim
+            Tit.Size = UDim2.new(1, 0, 0, 22)
+            Tit.TextXAlignment = Enum.TextXAlignment.Left
+            Tit.Parent = Wrap
+
+            local Btn = Instance.new("TextButton")
+            Btn.Text = ""
+            Btn.AutoButtonColor = false
+            Btn.BackgroundColor3 = C.El
+            Btn.Size = UDim2.new(1, -4, 0, 25)
+            Btn.AnchorPoint = Vector2.new(0, 1)
+            Btn.Position = UDim2.new(0, 0, 1, 0)
+            Btn.Parent = Wrap
+            local uc = Instance.new("UICorner")
+            uc.CornerRadius = UDim.new(0.1, 1)
+            uc.Parent = Btn
+
+            local Vt = Instance.new("TextLabel")
+            Vt.BackgroundTransparency = 1
+            Vt.Position = UDim2.fromOffset(12, 0)
+            Vt.Size = UDim2.new(1, -36, 1, 0)
+            Vt.FontFace = Library.Font
+            Vt.TextSize = Library.FontSize
+            Vt.TextXAlignment = Enum.TextXAlignment.Left
+            Vt.Text = ""
+            Vt.TextColor3 = C.Dim
+            Vt.Parent = Btn
+
+            local Arrow = Instance.new("ImageLabel")
+            Arrow.BackgroundTransparency = 1
+            Arrow.Image = "rbxassetid://108899987138167"
+            Arrow.ImageColor3 = C.Accent
+            Arrow.Size = UDim2.fromOffset(15, 15)
+            Arrow.AnchorPoint = Vector2.new(1, 0.5)
+            Arrow.Position = UDim2.new(1, -8, 0.5, 0)
+            Arrow.Parent = Btn
+
+            local OpenF = Instance.new("Frame")
+            OpenF.BackgroundColor3 = C.El
+            OpenF.BorderSizePixel = 0
+            OpenF.ClipsDescendants = true
+            OpenF.Size = UDim2.new(1, -4, 0, 0)
+            OpenF.Visible = false
+            OpenF.Parent = Wrap
+            local openRnd = Instance.new("UICorner")
+            openRnd.CornerRadius = UDim.new(0.05, 1)
+            openRnd.Parent = OpenF
+
+            Instance.new("UIListLayout").Parent = OpenF
+
+            local selM = {}
+            local sel1
+            if Multi then
+                for _ in ipairs(List) do
+                    table.insert(selM, false)
+                end
+                Vt.Text = ""
+            elseif Def then
+                sel1 = Def
+                Vt.Text = tostring(Def)
+                Vt.TextColor3 = Color3.new(1, 1, 1)
+            elseif #List > 0 then
+                sel1 = List[1]
+                Vt.Text = tostring(List[1])
+            end
+
+            local Open = false
+            local Deb = false
+            local outsideConn
+
+            local function Close()
+                if not Open then
+                    return
+                end
+                Open = false
+                Deb = true
+                TweenService:Create(Arrow, TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Rotation = 0,
+                }):Play()
+                TweenService:Create(OpenF, TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(1, -4, 0, 0),
+                }):Play()
+                if outsideConn then
+                    outsideConn:Disconnect()
+                    outsideConn = nil
+                end
+                task.delay(Library.Animation.Time, function()
+                    OpenF.Visible = false
+                    Deb = false
+                end)
+            end
+
+            local function OpenIt()
+                if Deb then
+                    return
+                end
+                if outsideConn then
+                    outsideConn:Disconnect()
+                    outsideConn = nil
+                end
+                Open = true
+                Deb = true
+                local h = math.min(#List * 25 + 8, 150)
+                OpenF.Visible = true
+                OpenF.Size = UDim2.new(1, -4, 0, 0)
+                TweenService:Create(Arrow, TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Rotation = 180,
+                }):Play()
+                TweenService:Create(OpenF, TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(1, -4, 0, h),
+                }):Play()
+                task.delay(Library.Animation.Time, function()
+                    Deb = false
+                end)
+
+                outsideConn = UserInputService.InputBegan:Connect(function(In)
+                    if In.UserInputType ~= Enum.UserInputType.MouseButton1 and In.UserInputType ~= Enum.UserInputType.Touch then
+                        return
+                    end
+                    task.defer(function()
+                        local w = setmetatable({ Instance = Wrap }, Library)
+                        local o = setmetatable({ Instance = OpenF }, Library)
+                        if not w:IsMouseOverFrame() and not o:IsMouseOverFrame() then
+                            Close()
+                        end
+                    end)
+                end)
+            end
+
+            Btn.MouseButton1Click:Connect(function()
+                if Open then
+                    Close()
+                else
+                    OpenIt()
+                end
+            end)
+
+            Library.OnHover(setmetatable({ Instance = Btn }, Library), function()
+                TweenService:Create(Btn, TweenInfo.new(0.1), { BackgroundColor3 = hoverLift(C.El) })
+            end, function()
+                TweenService:Create(Btn, TweenInfo.new(0.1), { BackgroundColor3 = C.El })
+            end)
+
+            for _, opt in ipairs(List) do
+                local Op = Instance.new("TextButton")
+                Op.Text = tostring(opt)
+                Op.FontFace = Library.Font
+                Op.TextSize = Library.FontSize
+                Op.BackgroundColor3 = C.El
+                Op.BorderSizePixel = 0
+                Op.Size = UDim2.new(1, 0, 0, 25)
+                Op.AutoButtonColor = false
+                Op.TextColor3 = C.Dim
+                Op.Parent = OpenF
+
+                Op.MouseButton1Click:Connect(function()
+                    if Multi then
+                        local ix = table.find(List, opt)
+                        selM[ix] = not selM[ix]
+                        local acc = {}
+                        for i, v in ipairs(List) do
+                            if selM[i] then
+                                table.insert(acc, tostring(v))
+                            end
+                        end
+                        Vt.Text = table.concat(acc, ", ")
+                        Vt.TextColor3 = #acc > 0 and Color3.new(1, 1, 1) or C.Dim
+                        Library.Flags[Flag] = acc
+                        Library:SafeCall(CB, acc)
+                    else
+                        sel1 = opt
+                        Vt.Text = tostring(opt)
+                        Vt.TextColor3 = Color3.new(1, 1, 1)
+                        Library.Flags[Flag] = opt
+                        Library:SafeCall(CB, opt)
+                        Close()
+                    end
+                end)
+
+                Library.OnHover(setmetatable({ Instance = Op }, Library), function()
+                    TweenService:Create(Op, TweenInfo.new(0.1), { BackgroundColor3 = hoverLift(C.El) })
+                end, function()
+                    TweenService:Create(Op, TweenInfo.new(0.1), { BackgroundColor3 = C.El })
+                end)
+            end
+
+            Sub.Page:RegisterSearch(Wrap, NM)
+        end
+
+        return Sec
+    end
+end
+
+getgenv().Library = Library
+return Library
