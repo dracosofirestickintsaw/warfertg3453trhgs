@@ -341,9 +341,10 @@ do
             local nx = StartPosition.X.Offset + d.X
             local ny = StartPosition.Y.Offset + d.Y
             Library:Tween(
-                setmetatable({ Instance = Gui }, Library),
-                { Position = UDim2.new(StartPosition.X.Scale, nx, StartPosition.Y.Scale, ny) },
-                TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+                setmetatable({ Instance = Gui }, Library):Tween(
+                    { Position = UDim2.new(StartPosition.X.Scale, nx, StartPosition.Y.Scale, ny) },
+                    TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                )
                 Gui
             )
         end
@@ -1102,11 +1103,12 @@ do
             elseif Def then
                 sel1 = Def
                 Vt.Text = tostring(Def)
-                Vt.TextColor3 = Color3.new(1, 1, 1)
             elseif #List > 0 then
                 sel1 = List[1]
                 Vt.Text = tostring(List[1])
             end
+
+            Library.Flags[Flag] = Multi and {} or sel1
 
             local Open = false
             local Deb = false
