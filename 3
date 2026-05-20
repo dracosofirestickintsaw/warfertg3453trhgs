@@ -2969,37 +2969,6 @@ local Library = {
 
                 function Window:RefreshSearch()
                     local Query = string.lower(string.gsub(tostring(Window.SearchQuery or ""), "%s+", ""))
-                    local IsSearching = Query ~= ""
-
-                    for _, P in Window.Pages do
-                        if IsSearching then
-                            if P.Items["Page"].Instance.Parent ~= Window.Items["Content"].Instance then
-                                P.Items["Page"].Instance.Parent = Window.Items["Content"].Instance
-                            end
-                            P.Items["Page"].Instance.Visible = true
-                            P.Items["Page"].Instance.Position = UDim2.new(0, 0, 0, 0)
-
-                            for _, SP in P.Pages do
-                                if SP.Items["Page"].Instance.Parent ~= P.Items["Page"].Instance then
-                                    SP.Items["Page"].Instance.Parent = P.Items["Page"].Instance
-                                end
-                                SP.Items["Page"].Instance.Visible = true
-                                SP.Items["Page"].Instance.Position = UDim2.new(0, 0, 0, 0)
-                            end
-                        else
-                            if P ~= Window.Current then
-                                P.Items["Page"].Instance.Visible = false
-                                P.Items["Page"].Instance.Parent = Library.UnusedHolder.Instance
-                            else
-                                for _, SP in P.Pages do
-                                    if SP ~= P.Current then
-                                        SP.Items["Page"].Instance.Visible = false
-                                        SP.Items["Page"].Instance.Parent = Library.UnusedHolder.Instance
-                                    end
-                                end
-                            end
-                        end
-                    end
 
                     for _, Item in Library.SearchItems do
                         local Holder = Item.Holder
@@ -3022,6 +2991,7 @@ local Library = {
                                 Library:Tween(TweenData, nil, FadeData.Object)
                             end
                             Library:Tween({Size = Item.OriginalSize}, nil, Holder)
+
                         elseif not Matched and Item.Visible then
                             Item.Visible = false
                             Item.SearchToken = (Item.SearchToken or 0) + 1
