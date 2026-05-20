@@ -1851,7 +1851,11 @@ local Library = {
                     Key = Keybind.Key,
                     Toggled = Keybind.Toggled
                 }
-    
+            
+                if Data.Toggle then
+                    Data.Toggle:Set(Keybind.Toggled)
+                end
+            
                 if Data.Callback then 
                     Library:SafeCall(Data.Callback, Keybind.Toggled)
                 end
@@ -2451,6 +2455,10 @@ local Library = {
         
             KeybindList:Center()
             Library.KeyList = KeybindList
+    
+            if IsMobile then
+                Items["KeybindList"].Instance.Visible = false
+            end
         
             return setmetatable(KeybindList, Library)
         end
@@ -2494,6 +2502,7 @@ local Library = {
                     BackgroundTransparency = 1,
                     Position = UDim2.new(0, 0, 0.5, 0),
                     BorderSizePixel = 0,
+                    LayoutOrder = 1,
                     AutomaticSize = Enum.AutomaticSize.XY
                 }):AddToTheme({TextColor3 = 'Accent'})
                 
@@ -2503,14 +2512,24 @@ local Library = {
                     PaddingRight = UDim.new(0, 15),
                     PaddingLeft = UDim.new(0, 15)
                 })
+
+                Library:Create("UIListLayout", {
+                    Name = "\0",
+                    Parent = Items["Watermark"].Instance,
+                    FillDirection = Enum.FillDirection.Horizontal,
+                    VerticalAlignment = Enum.VerticalAlignment.Center,
+                    Padding = UDim.new(0, 10),
+                    SortOrder = Enum.SortOrder.LayoutOrder
+                })
                 
                 Items["Holder"] = Library:Create("Frame", {
                     Name = "\0",
                     Parent = Items["Watermark"].Instance,
                     BackgroundTransparency = 1,
-                    Position = UDim2.new(0, Items["Title"].Instance.AbsoluteSize.X + 10, 0, 0),
+                    Position = UDim2.new(0, 0, 0, 0),
                     Size = UDim2.new(0, 0, 1, 0),
                     BorderSizePixel = 0,
+                    LayoutOrder = 2,
                     AutomaticSize = Enum.AutomaticSize.X
                 })
                 
@@ -2950,6 +2969,37 @@ local Library = {
 
                 function Window:RefreshSearch()
                     local Query = string.lower(string.gsub(tostring(Window.SearchQuery or ""), "%s+", ""))
+                    local IsSearching = Query ~= ""
+
+                    for _, P in Window.Pages do
+                        if IsSearching then
+                            if P.Items["Page"].Instance.Parent ~= Window.Items["Content"].Instance then
+                                P.Items["Page"].Instance.Parent = Window.Items["Content"].Instance
+                            end
+                            P.Items["Page"].Instance.Visible = true
+                            P.Items["Page"].Instance.Position = UDim2.new(0, 0, 0, 0)
+
+                            for _, SP in P.Pages do
+                                if SP.Items["Page"].Instance.Parent ~= P.Items["Page"].Instance then
+                                    SP.Items["Page"].Instance.Parent = P.Items["Page"].Instance
+                                end
+                                SP.Items["Page"].Instance.Visible = true
+                                SP.Items["Page"].Instance.Position = UDim2.new(0, 0, 0, 0)
+                            end
+                        else
+                            if P ~= Window.Current then
+                                P.Items["Page"].Instance.Visible = false
+                                P.Items["Page"].Instance.Parent = Library.UnusedHolder.Instance
+                            else
+                                for _, SP in P.Pages do
+                                    if SP ~= P.Current then
+                                        SP.Items["Page"].Instance.Visible = false
+                                        SP.Items["Page"].Instance.Parent = Library.UnusedHolder.Instance
+                                    end
+                                end
+                            end
+                        end
+                    end
 
                     for _, Item in Library.SearchItems do
                         local Holder = Item.Holder
@@ -2972,7 +3022,6 @@ local Library = {
                                 Library:Tween(TweenData, nil, FadeData.Object)
                             end
                             Library:Tween({Size = Item.OriginalSize}, nil, Holder)
-
                         elseif not Matched and Item.Visible then
                             Item.Visible = false
                             Item.SearchToken = (Item.SearchToken or 0) + 1
@@ -3849,6 +3898,7 @@ local Library = {
                     Page = Keybind.Page,
                     Section = Keybind.Section,
                     Flag = Keybind.Flag,
+                    Toggle = Toggle,
                     Default = Keybind.Default,
                     Mode = Keybind.Mode,
                     Callback = Keybind.Callback
