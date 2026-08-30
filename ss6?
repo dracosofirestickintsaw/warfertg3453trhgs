@@ -2387,6 +2387,27 @@ function Library:Window(Params)
     end
 
     Library.CursorHeld = false
+    Library.CameraKeys = {
+        [Enum.UserInputType.MouseButton2] = true,
+        [Enum.UserInputType.MouseButton3] = true
+    }
+
+    local Rotating = false
+
+    local function CameraGesture()
+        if IsMobile or not Rotating then
+            return false
+        end
+
+        for Key in next, Library.CameraKeys do
+            if UserInputService:IsMouseButtonPressed(Key) then
+                return true
+            end
+        end
+
+        Rotating = false
+        return false
+    end
 
     local function CursorWanted()
         if not Library.FreeCursor or Library.Unloaded then
@@ -2401,7 +2422,7 @@ function Library:Window(Params)
     end
 
     local function HoldCursor()
-        if not CursorWanted() then
+        if CameraGesture() or not CursorWanted() then
             return
         end
 
@@ -2420,8 +2441,28 @@ function Library:Window(Params)
 
     Library.ReleaseCursor = ReleaseCursor
     Library.CursorWanted = CursorWanted
+    Library.CameraGesture = CameraGesture
+
+    Library:Connect(UserInputService.InputBegan, function(Input, Busy)
+        if Busy or not Library.CameraKeys[Input.UserInputType] then
+            return
+        end
+
+        Rotating = true
+    end)
+
+    Library:Connect(UserInputService.InputEnded, function(Input)
+        if Library.CameraKeys[Input.UserInputType] then
+            Rotating = false
+        end
+    end)
 
     Library:Connect(RunService.RenderStepped, function()
+        if CameraGesture() then
+            Library.CursorHeld = false
+            return
+        end
+
         if not CursorWanted() then
             ReleaseCursor()
             return
@@ -3955,6 +3996,12 @@ function Library:Toggle(Params)
         Element.Value = Value and true or false
         Library.Flags[Flag] = Element.Value
         Element:Visual()
+
+        local Bound = Element.KeybindObject
+
+        if Bound and Bound.SyncActive then
+            Bound:SyncActive()
+        end
 
         if not Silent and Params.Callback then
             Library:SafeCall(Params.Callback, Element.Value)
@@ -5500,6 +5547,15 @@ function Library:Keybind(Params)
         end
     end
 
+    function Keybind:SyncActive()
+        if Keybind.Mode ~= "Toggle" or not Bind or Element.Value == nil then
+            return
+        end
+
+        Keybind.Active = Element.Value and true or false
+        HotkeyRow.SetActive(Keybind.Active)
+    end
+
     function Keybind:Set(Value)
         if type(Value) == "table" then
             Keybind.Key = Library:KeyFromString(Value.Key)
@@ -5519,6 +5575,7 @@ function Library:Keybind(Params)
         PaintKey()
         PaintMode()
         PaintShow()
+        Keybind:SyncActive()
     end
 
     Hit:HoverGradient(Field)
@@ -5540,12 +5597,18 @@ function Library:Keybind(Params)
         Keybind.Mode = "Toggle"
         PaintMode()
         PaintKey()
+        Keybind:SyncActive()
     end)
 
     HoldHit:Connect("MouseButton1Down", function()
         Keybind.Mode = "Hold"
         PaintMode()
         PaintKey()
+
+        if Keybind.Active then
+            Keybind.Active = false
+            HotkeyRow.SetActive(false)
+        end
     end)
 
     ResetHit:Connect("MouseButton1Down", function()
@@ -5676,6 +5739,10 @@ function Library:Keybind(Params)
     PaintKey()
 
     Element.KeybindObject = Keybind
+
+    Keybind:SyncActive()
+    HotkeyRow.SetActive(Keybind.Active)
+
     return Keybind
 end
 
