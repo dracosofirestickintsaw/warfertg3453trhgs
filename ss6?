@@ -896,7 +896,7 @@ local function MakeText(Params)
         TextSize = Params.TextSize or Library.FontSize,
         TextXAlignment = Params.Align or Enum.TextXAlignment.Left,
         TextYAlignment = Params.VAlign or Enum.TextYAlignment.Center,
-        TextTruncate = Params.Truncate and Enum.TextTruncate.AtEnd or Enum.TextTruncate.None,
+        TextTruncate = Enum.TextTruncate.None,
         ClipsDescendants = Params.Clip or false,
         Visible = Params.Visible ~= false,
         ZIndex = Params.Z or 1
@@ -4833,7 +4833,7 @@ function Library:Dropdown(Params)
             TextColor3 = Library.Theme.Text,
             TextSize = 14,
             TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
+            TextTruncate = Enum.TextTruncate.None,
             ClearTextOnFocus = false,
             ZIndex = Library.Order.Popup + 2
         }):AddToTheme({
@@ -5139,7 +5139,7 @@ function Library:Textbox(Params)
         TextColor3 = Library.Theme.Text,
         TextSize = 15,
         TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
+        TextTruncate = Enum.TextTruncate.None,
         ClearTextOnFocus = false,
         ZIndex = Library.Order.Window + 6
     }):AddToTheme({
@@ -7761,7 +7761,7 @@ function Library:ShareConfig(Params)
         TextColor3 = Library.Theme.Text,
         TextSize = 15,
         TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
+        TextTruncate = Enum.TextTruncate.None,
         ClearTextOnFocus = false,
         ZIndex = Library.Order.Window + 6
     }):AddToTheme({
