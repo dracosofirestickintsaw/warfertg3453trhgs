@@ -2387,25 +2387,23 @@ function Library:Window(Params)
     end
 
     Library.CursorHeld = false
+    Library.CursorAnywhere = true
     Library.CameraKeys = {
-        [Enum.UserInputType.MouseButton2] = true,
-        [Enum.UserInputType.MouseButton3] = true
+        Enum.UserInputType.MouseButton2,
+        Enum.KeyCode.LeftAlt
     }
 
-    local Rotating = false
-
     local function CameraGesture()
-        if IsMobile or not Rotating then
+        if IsMobile or Library.Unloaded then
             return false
         end
 
-        for Key in next, Library.CameraKeys do
-            if UserInputService:IsMouseButtonPressed(Key) then
+        for Index = 1, #Library.CameraKeys do
+            if Library:KeyDown(Library.CameraKeys[Index]) then
                 return true
             end
         end
 
-        Rotating = false
         return false
     end
 
@@ -2414,17 +2412,42 @@ function Library:Window(Params)
             return false
         end
 
+        if CameraGesture() then
+            return false
+        end
+
         if Library.SearchOverlay and Library.SearchOverlay.Instance.Visible then
             return true
         end
 
-        return Library.Toggled and Shell.Instance.Visible
+        for Popup in next, Library.OpenFrames do
+            if Popup.Holder and Popup.Holder.Instance.Visible then
+                return true
+            end
+        end
+
+        if not Library.Toggled or not Shell.Instance.Visible then
+            return false
+        end
+
+        if Library.CursorAnywhere then
+            return true
+        end
+
+        return Library:MouseOverUi()
+    end
+
+    local function ReleaseCursor()
+        Library.CursorHeld = false
     end
 
     local function HoldCursor()
-        if CameraGesture() or not CursorWanted() then
+        if not CursorWanted() then
+            ReleaseCursor()
             return
         end
+
+        Library.CursorHeld = true
 
         if UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default then
             UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -2435,42 +2458,11 @@ function Library:Window(Params)
         end
     end
 
-    local function ReleaseCursor()
-        Library.CursorHeld = false
-    end
-
     Library.ReleaseCursor = ReleaseCursor
     Library.CursorWanted = CursorWanted
     Library.CameraGesture = CameraGesture
 
-    Library:Connect(UserInputService.InputBegan, function(Input, Busy)
-        if Busy or not Library.CameraKeys[Input.UserInputType] then
-            return
-        end
-
-        Rotating = true
-    end)
-
-    Library:Connect(UserInputService.InputEnded, function(Input)
-        if Library.CameraKeys[Input.UserInputType] then
-            Rotating = false
-        end
-    end)
-
-    Library:Connect(RunService.RenderStepped, function()
-        if CameraGesture() then
-            Library.CursorHeld = false
-            return
-        end
-
-        if not CursorWanted() then
-            ReleaseCursor()
-            return
-        end
-
-        Library.CursorHeld = true
-        HoldCursor()
-    end)
+    Library:Connect(RunService.RenderStepped, HoldCursor)
 
     Library:Connect(UserInputService:GetPropertyChangedSignal("MouseBehavior"), HoldCursor)
     Library:Connect(UserInputService:GetPropertyChangedSignal("MouseIconEnabled"), HoldCursor)
