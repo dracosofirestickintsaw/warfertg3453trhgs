@@ -4753,14 +4753,21 @@ function Library:Dropdown(Params)
         Z = Library.Order.Window + 5
     })
 
-    local Display = MakeText({
+    local DisplayClip = MakeFrame({
         Parent = Field.Instance,
         Pos = UDim2.fromOffset(6, 0),
-        Size = UDim2.fromOffset(InnerWidth - 30, 24),
+        Size = UDim2.fromOffset(InnerWidth - 32, 24),
+        Transparency = 1,
+        Clip = true,
+        Z = Library.Order.Window + 6
+    })
+
+    local Display = MakeText({
+        Parent = DisplayClip.Instance,
+        Size = UDim2.fromOffset(InnerWidth - 32, 24),
         Text = "None",
         TextSize = 15,
         Color = "InactiveText",
-        Truncate = true,
         Z = Library.Order.Window + 6
     })
 
