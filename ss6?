@@ -1079,6 +1079,19 @@ Library.Corner = Corner
 Library.Stroke = Stroke
 Library.Gradient = Gradient
 
+local function ThemeBind(Object, Property, Resolve)
+    local Entry = Library.ThemeMap[Object.Instance]
+
+    if Entry then
+        Entry.Properties[Property] = Resolve
+    end
+
+    Object.Instance[Property] = Resolve()
+    return Object
+end
+
+Library.ThemeBind = ThemeBind
+
 local KeyNames = {
     [Enum.KeyCode.LeftShift] = "LSHIFT",
     [Enum.KeyCode.RightShift] = "RSHIFT",
@@ -2162,6 +2175,14 @@ function Library:Window(Params)
         Tab.RowStroke = RowStroke
         Tab.Icon = Icon
         Tab.NameLabel = Label
+
+        ThemeBind(Label, "TextColor3", function()
+            return Window.Current == Tab and Library.Theme.Text or Library.Theme.InactiveText
+        end)
+
+        ThemeBind(Icon, "ImageColor3", function()
+            return Window.Current == Tab and Library.Theme.Text or Library.Theme.InactiveText
+        end)
 
         local Pages = {}
 
@@ -3901,6 +3922,10 @@ function Library:Toggle(Params)
         Z = Library.Order.Window + 5
     })
 
+    ThemeBind(Text, "TextColor3", function()
+        return Element.Value and Library.Theme.Text or Library.Theme.InactiveText
+    end)
+
     local Switch = MakeFrame({
         Parent = Element.Row.Instance,
         Pos = UDim2.fromOffset(SectionWidth - 37, 5),
@@ -5076,7 +5101,23 @@ function Library:Dropdown(Params)
 
     function Element:Set(Value, Silent)
         if Multi then
-            Element.Value = type(Value) == "table" and Value or {}
+            local Picked = {}
+
+            if type(Value) == "table" then
+                for Index = 1, #Value do
+                    if Value[Index] ~= nil then
+                        table.insert(Picked, Value[Index])
+                    end
+                end
+
+                if #Picked == 0 then
+                    for _, Item in next, Value do
+                        table.insert(Picked, Item)
+                    end
+                end
+            end
+
+            Element.Value = Picked
         else
             Element.Value = Value
         end
@@ -7260,6 +7301,10 @@ function Library:List(Params)
                 Truncate = true,
                 Z = Library.Order.Window + 8
             })
+
+            ThemeBind(Label, "TextColor3", function()
+                return Element.Value == Item and Library.Theme.Text or Library.Theme.InactiveText
+            end)
 
             local Line = MakeFrame({
                 Parent = Frame.Instance,
