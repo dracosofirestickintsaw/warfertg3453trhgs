@@ -5141,6 +5141,8 @@ function Library:Dropdown(Params)
         Element:Set(Params.Default, true)
     end
 
+    Library.Flags[Flag] = Element.Value
+
     Section:Reflow()
     return Element
 end
@@ -6644,18 +6646,56 @@ function Library:LoadConfig(Raw)
         Decoded.__Theme = nil
     end
 
+    local Applied = 0
+    local Missing = {}
+    local Failed = {}
+
     for Index, Value in next, Decoded do
         local Setter = Library.SetFlags[Index]
 
         if not Setter then
+            table.insert(Missing, tostring(Index))
             continue
         end
 
+        local Ok
+
         if type(Value) == "table" and Value.Color then
-            Library:SafeCall(Setter, Value.Color, Value.Alpha)
+            Ok = Library:SafeCall(Setter, Value.Color, Value.Alpha)
         else
-            Library:SafeCall(Setter, Value)
+            Ok = Library:SafeCall(Setter, Value)
         end
+
+        if Ok then
+            Applied = Applied + 1
+        else
+            table.insert(Failed, tostring(Index))
+        end
+    end
+
+    table.sort(Missing)
+    table.sort(Failed)
+
+    Library.LastLoad = {
+        Applied = Applied,
+        Missing = Missing,
+        Failed = Failed,
+        Known = 0
+    }
+
+    for _ in next, Library.SetFlags do
+        Library.LastLoad.Known = Library.LastLoad.Known + 1
+    end
+
+    warn("[Blossom] load: applied " .. Applied .. ", no setter " .. #Missing .. ", errored " .. #Failed
+        .. ", registered setters " .. Library.LastLoad.Known)
+
+    if #Missing > 0 then
+        warn("[Blossom] no setter for: " .. table.concat(Missing, ", "))
+    end
+
+    if #Failed > 0 then
+        warn("[Blossom] setter errored for: " .. table.concat(Failed, ", "))
     end
 
     return true
