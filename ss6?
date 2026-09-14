@@ -8279,7 +8279,7 @@ do
     function Library:SetPillSize(Tall)
         PillTall = math.clamp(math.floor(tonumber(Tall) or PillTall), 24, 200)
 
-        local IconTall = math.floor(PillTall * 0.55)
+        local IconTall = math.floor(PillTall * 0.65)
         local Pad = math.floor((PillTall - IconTall) / 2)
 
         Pill.Instance.Size = UDim2.fromOffset(PillTall, PillTall)
