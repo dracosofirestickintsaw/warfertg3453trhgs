@@ -8249,8 +8249,8 @@ function Library:ConfigTab(Params)
 end
 
 do
-    local PillTall = IsMobile and 46 or 40
-    local PillIconTall = IsMobile and 24 or 20
+    local PillTall = IsMobile and 46 or 56
+    local PillIconTall = IsMobile and 24 or 28
     local PillPad = (PillTall - PillIconTall) / 2
 
     local Pill = MakeButton({
