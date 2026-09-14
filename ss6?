@@ -8249,9 +8249,7 @@ function Library:ConfigTab(Params)
 end
 
 do
-    local PillTall = IsMobile and 46 or 56
-    local PillIconTall = IsMobile and 24 or 28
-    local PillPad = (PillTall - PillIconTall) / 2
+    local PillTall = IsMobile and 46 or 80
 
     local Pill = MakeButton({
         Parent = Root,
@@ -8264,10 +8262,11 @@ do
         Z = Library.Order.Notification + 10
     })
 
+    local PillCorner = Pill.Instance:FindFirstChildOfClass("UICorner")
+
     local PillIcon = MakeImage({
         Parent = Pill.Instance,
-        Pos = UDim2.fromOffset(PillPad, PillPad),
-        Size = UDim2.fromOffset(PillIconTall, PillIconTall),
+        Size = UDim2.fromOffset(PillTall, PillTall),
         Image = Library.Icons.Hub,
         Z = Library.Order.Notification + 11
     })
@@ -8276,6 +8275,23 @@ do
     Library.PillIcon = PillIcon
     Library.MobilePill = Pill
     Library.MobilePillIcon = PillIcon
+
+    function Library:SetPillSize(Tall)
+        PillTall = math.clamp(math.floor(tonumber(Tall) or PillTall), 24, 200)
+
+        local IconTall = math.floor(PillTall * 0.55)
+        local Pad = math.floor((PillTall - IconTall) / 2)
+
+        Pill.Instance.Size = UDim2.fromOffset(PillTall, PillTall)
+        PillIcon.Instance.Position = UDim2.fromOffset(Pad, Pad)
+        PillIcon.Instance.Size = UDim2.fromOffset(IconTall, IconTall)
+
+        if PillCorner then
+            PillCorner.CornerRadius = UDim.new(0, PillTall / 2)
+        end
+    end
+
+    Library:SetPillSize(PillTall)
 
     Pill:MakeDraggable()
 
