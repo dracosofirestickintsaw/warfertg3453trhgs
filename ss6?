@@ -8249,11 +8249,11 @@ function Library:ConfigTab(Params)
 end
 
 do
-    local PillTall = IsMobile and 46 or 80
+    local PillTall = IsMobile and 46 or 92
 
     local Pill = MakeButton({
         Parent = Root,
-        Pos = UDim2.new(0.05, 0, 0.42, 0),
+        Pos = UDim2.new(0.09, 0, 0.33, 0),
         Size = UDim2.fromOffset(PillTall, PillTall),
         Color = "Tab",
         Transparency = 0,
