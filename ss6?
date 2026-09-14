@@ -49,6 +49,9 @@ local Library = {
     Unloaded = false,
     Booted = false,
 
+    PillEnabled = true,
+    PillCursor = false,
+
     Animation = {
         Time = 0.25,
         Style = Enum.EasingStyle.Quart,
@@ -1502,11 +1505,21 @@ function Library:WatermarkVisible(State)
     end
 end
 
+function Library:PillVisible(State)
+    Library.PillEnabled = State and true or false
+
+    if not Library.Pill then
+        return
+    end
+
+    Library:FadeGroup(Library.Pill.Instance, Library.PillEnabled)
+end
+
 function Library:PaintBrandIcon(Icon)
     Library:PaintIcon(WatermarkIcon.Instance, Icon)
 
-    if Library.MobilePillIcon then
-        Library:PaintIcon(Library.MobilePillIcon.Instance, Icon)
+    if Library.PillIcon then
+        Library:PaintIcon(Library.PillIcon.Instance, Icon)
     end
 end
 
@@ -2445,6 +2458,10 @@ function Library:Window(Params)
             if Popup.Holder and Popup.Holder.Instance.Visible then
                 return true
             end
+        end
+
+        if Library.PillCursor and Library.Pill and Library.Pill.Instance.Visible then
+            return true
         end
 
         if not Library.Toggled or not Shell.Instance.Visible then
@@ -8148,6 +8165,15 @@ function Library:ConfigTab(Params)
         end
     })
 
+    Menu:Toggle({
+        Name = "Toggle Button",
+        Flag = "BlossomPill",
+        Default = true,
+        Callback = function(Value)
+            Library:PillVisible(Value)
+        end
+    })
+
     Menu:Button({
         Name = "Unload",
         Callback = function()
@@ -8222,61 +8248,108 @@ function Library:ConfigTab(Params)
     return Tab
 end
 
-if IsMobile then
+do
+    local PillTall = IsMobile and 46 or 40
+    local PillIconTall = IsMobile and 24 or 20
+    local PillPad = (PillTall - PillIconTall) / 2
+
     local Pill = MakeButton({
         Parent = Root,
         Pos = UDim2.new(0.05, 0, 0.42, 0),
-        Size = UDim2.fromOffset(46, 46),
+        Size = UDim2.fromOffset(PillTall, PillTall),
         Color = "Tab",
         Transparency = 0,
-        Round = 23,
+        Round = PillTall / 2,
         Stroke = true,
         Z = Library.Order.Notification + 10
     })
 
     local PillIcon = MakeImage({
         Parent = Pill.Instance,
-        Pos = UDim2.fromOffset(11, 11),
-        Size = UDim2.fromOffset(24, 24),
+        Pos = UDim2.fromOffset(PillPad, PillPad),
+        Size = UDim2.fromOffset(PillIconTall, PillIconTall),
         Image = Library.Icons.Hub,
         Z = Library.Order.Notification + 11
     })
 
+    Library.Pill = Pill
+    Library.PillIcon = PillIcon
+    Library.MobilePill = Pill
     Library.MobilePillIcon = PillIcon
 
     Pill:MakeDraggable()
 
+    if not IsMobile then
+        Library:Connect(Pill.Instance.MouseEnter, function()
+            if Library.Unloaded then
+                return
+            end
+
+            Library:Tween({
+                BackgroundColor3 = Library.Theme.HoveredElement
+            }, nil, Pill.Instance)
+        end)
+
+        Library:Connect(Pill.Instance.MouseLeave, function()
+            Library:Tween({
+                BackgroundColor3 = Library.Theme.Tab
+            }, nil, Pill.Instance)
+        end)
+    end
+
     local Moved = false
     local Origin
+    local Held
+
+    local function IsPress(Input)
+        return Input.UserInputType == Enum.UserInputType.Touch
+            or Input.UserInputType == Enum.UserInputType.MouseButton1
+    end
+
+    local function IsMove(Input)
+        return Input.UserInputType == Enum.UserInputType.Touch
+            or Input.UserInputType == Enum.UserInputType.MouseMovement
+    end
 
     Pill:Connect("InputBegan", function(Input)
-        if Input.UserInputType == Enum.UserInputType.Touch then
-            Moved = false
-            Origin = Input.Position
-        end
-    end)
-
-    Library:Connect(UserInputService.InputChanged, function(Input)
-        if Input.UserInputType == Enum.UserInputType.Touch and Origin then
-            if (Input.Position - Origin).Magnitude > 8 then
-                Moved = true
-            end
-        end
-    end)
-
-    Pill:Connect("InputEnded", function(Input)
-        if Input.UserInputType ~= Enum.UserInputType.Touch then
+        if not IsPress(Input) or not Pill.Instance.Visible then
             return
         end
 
-        if not Moved and Library.Window then
-            Library.Window:SetVisible(not Library.Toggled)
-        end
-
-        Origin = nil
+        Moved = false
+        Origin = Input.Position
+        Held = Input
     end)
 
-    Library.MobilePill = Pill
+    Library:Connect(UserInputService.InputChanged, function(Input)
+        if not Origin or not IsMove(Input) then
+            return
+        end
+
+        if (Input.Position - Origin).Magnitude > 8 then
+            Moved = true
+        end
+    end)
+
+    Library:Connect(UserInputService.InputEnded, function(Input)
+        if not Held or Input.UserInputType ~= Held.UserInputType then
+            return
+        end
+
+        if Held.UserInputType == Enum.UserInputType.Touch and Input ~= Held then
+            return
+        end
+
+        local Tapped = not Moved
+
+        Moved = false
+        Origin = nil
+        Held = nil
+
+        if Tapped and Library.Window then
+            Library.Window:SetVisible(not Library.Toggled)
+        end
+    end)
 end
 
 return Library
